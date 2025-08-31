@@ -123,6 +123,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ? prices.reduce((sum, price) => sum + price, 0) / prices.length 
         : 0;
 
+      // Clear existing records and save new ones to storage
+      await storage.clearLiquorRecords();
+      console.log('Cleared existing liquor records');
+      
+      for (const record of records) {
+        await storage.createLiquorRecord(record);
+      }
+      console.log(`Saved ${records.length} liquor records to storage`);
+
       const result = {
         success: true,
         totalRecords: records.length,
@@ -188,6 +197,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const avgPrice = prices.length > 0 
         ? prices.reduce((sum, price) => sum + price, 0) / prices.length 
         : 0;
+
+      // Clear existing records and save new ones to storage
+      await storage.clearLiquorRecords();
+      console.log('Cleared existing liquor records');
+      
+      for (const record of records) {
+        await storage.createLiquorRecord(record);
+      }
+      console.log(`Saved ${records.length} liquor records to storage`);
 
       const result = {
         success: true,
