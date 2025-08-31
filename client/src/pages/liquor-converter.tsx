@@ -5,7 +5,7 @@ import { ProgressIndicator } from "@/components/progress-indicator";
 import { SummaryStats } from "@/components/summary-stats";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Download, HelpCircle, Book } from "lucide-react";
+import { FileText, Download, HelpCircle, Book, Scan } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface ProcessingState {
@@ -227,8 +227,16 @@ export default function LiquorConverter() {
               </div>
             </div>
             <div className="hidden sm:flex items-center space-x-4">
+              <a 
+                href="/scanner" 
+                className="bg-primary text-primary-foreground px-4 py-2 rounded-md text-sm font-medium hover:bg-primary/90 transition-colors"
+                data-testid="link-scanner"
+              >
+                <Scan className="h-4 w-4 mr-2 inline" />
+                Barcode Scanner
+              </a>
               <div className="text-sm text-muted-foreground">
-                {processedData?.totalRecords || 0} files processed today
+                {processedData?.totalRecords || 0} records loaded
               </div>
             </div>
           </div>

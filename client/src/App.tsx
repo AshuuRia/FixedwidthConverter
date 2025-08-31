@@ -5,11 +5,13 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import LiquorConverter from "@/pages/liquor-converter";
+import BarcodeScannerPage from "@/pages/barcode-scanner-page";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={LiquorConverter} />
+      <Route path="/scanner" component={BarcodeScannerPage} />
       <Route component={NotFound} />
     </Switch>
   );

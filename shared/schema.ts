@@ -57,6 +57,48 @@ export const fileProcessingResult = z.object({
 
 export type FileProcessingResult = z.infer<typeof fileProcessingResult>;
 
+// Scanned items schema for barcode scanning workflow
+export const scannedItems = pgTable("scanned_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: text("session_id").notNull(), // To group scans by session
+  liquorRecordId: text("liquor_record_id"), // Reference to original liquor record
+  scannedBarcode: text("scanned_barcode").notNull(),
+  scannedAt: text("scanned_at").notNull(),
+  quantity: integer("quantity").default(1),
+});
+
+export const insertScannedItemSchema = createInsertSchema(scannedItems).omit({
+  id: true,
+});
+
+export type InsertScannedItem = z.infer<typeof insertScannedItemSchema>;
+export type ScannedItem = typeof scannedItems.$inferSelect;
+
+// Schema for barcode scan result
+export const barcodeScanResult = z.object({
+  success: z.boolean(),
+  barcode: z.string(),
+  matchedProduct: z.object({
+    liquorCode: z.string(),
+    brandName: z.string(),
+    adaNumber: z.string(),
+    adaName: z.string(),
+    vendorName: z.string(),
+    proof: z.string(),
+    bottleSize: z.string(),
+    packSize: z.string(),
+    onPremisePrice: z.union([z.number(), z.string()]),
+    offPremisePrice: z.union([z.number(), z.string()]),
+    shelfPrice: z.union([z.number(), z.string()]),
+    upcCode1: z.string(),
+    upcCode2: z.string(),
+    effectiveDate: z.string(),
+  }).optional(),
+  error: z.string().optional(),
+});
+
+export type BarcodeScanResult = z.infer<typeof barcodeScanResult>;
+
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   username: text("username").notNull().unique(),

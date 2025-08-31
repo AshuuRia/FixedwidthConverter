@@ -215,6 +215,122 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Scan barcode and lookup product
+  app.post("/api/scan-barcode", async (req, res) => {
+    console.log('Processing barcode scan request...');
+    
+    try {
+      const { barcode, sessionId } = req.body;
+      
+      if (!barcode) {
+        return res.status(400).json({ 
+          success: false, 
+          error: "No barcode provided" 
+        });
+      }
+
+      console.log('Looking up barcode:', barcode);
+
+      // Find matching liquor record
+      const matchedProduct = await storage.findLiquorByBarcode(barcode);
+      
+      if (matchedProduct) {
+        // Add to scanned items if sessionId provided
+        if (sessionId) {
+          await storage.addScannedItem({
+            sessionId,
+            liquorRecordId: matchedProduct.id,
+            scannedBarcode: barcode,
+            scannedAt: new Date().toISOString(),
+            quantity: 1,
+          });
+        }
+
+        console.log('Product found:', matchedProduct.brandName);
+        
+        res.json({
+          success: true,
+          barcode,
+          matchedProduct,
+        });
+      } else {
+        console.log('No product found for barcode:', barcode);
+        
+        res.json({
+          success: false,
+          barcode,
+          error: "Product not found in database",
+        });
+      }
+    } catch (error) {
+      console.error("Barcode scan error:", error);
+      
+      res.status(500).json({
+        success: false,
+        error: "Failed to process barcode scan",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  // Get scanned items for a session
+  app.get("/api/scanned-items/:sessionId", async (req, res) => {
+    try {
+      const { sessionId } = req.params;
+      console.log('Getting scanned items for session:', sessionId);
+
+      const scannedItems = await storage.getScannedItems(sessionId);
+      
+      // Get full product details for each scanned item
+      const itemsWithDetails = await Promise.all(
+        scannedItems.map(async (item) => {
+          const liquorRecords = await storage.getLiquorRecords();
+          const product = liquorRecords.find(r => r.id === item.liquorRecordId);
+          return {
+            ...item,
+            product: product || null,
+          };
+        })
+      );
+
+      res.json({
+        success: true,
+        sessionId,
+        items: itemsWithDetails,
+        totalCount: itemsWithDetails.length,
+      });
+    } catch (error) {
+      console.error("Get scanned items error:", error);
+      
+      res.status(500).json({
+        success: false,
+        error: "Failed to get scanned items",
+      });
+    }
+  });
+
+  // Clear scanned items for a session
+  app.delete("/api/scanned-items/:sessionId", async (req, res) => {
+    try {
+      const { sessionId } = req.params;
+      console.log('Clearing scanned items for session:', sessionId);
+
+      await storage.clearScannedItems(sessionId);
+      
+      res.json({
+        success: true,
+        message: "Scanned items cleared",
+      });
+    } catch (error) {
+      console.error("Clear scanned items error:", error);
+      
+      res.status(500).json({
+        success: false,
+        error: "Failed to clear scanned items",
+      });
+    }
+  });
+
   // Generate Excel file
   app.post("/api/generate-excel", async (req, res) => {
     try {
