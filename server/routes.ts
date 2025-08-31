@@ -10,16 +10,12 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
     fileSize: 50 * 1024 * 1024, // 50MB limit
-    files: 1
+    files: 1,
+    fieldSize: 50 * 1024 * 1024 // 50MB field size limit
   },
   fileFilter: (req, file, cb) => {
     console.log('File filter check:', file.originalname, file.mimetype);
-    // Accept text files and files without specific MIME type
-    if (file.mimetype === 'text/plain' || file.mimetype === 'application/octet-stream' || !file.mimetype) {
-      cb(null, true);
-    } else {
-      cb(null, true); // Accept all files for now to avoid issues
-    }
+    cb(null, true); // Accept all files
   }
 });
 

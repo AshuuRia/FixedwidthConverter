@@ -80,7 +80,7 @@ export default function LiquorConverter() {
       console.log('Starting file upload...', selectedFile.name, selectedFile.size);
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minute timeout
 
       const response = await fetch('/api/process-file', {
         method: 'POST',
