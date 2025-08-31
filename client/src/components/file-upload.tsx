@@ -132,6 +132,42 @@ export function FileUpload({
           <Settings className="h-4 w-4 mr-2" />
           {isProcessing ? "Processing..." : "Process File"}
         </Button>
+        
+        {/* Alternative Upload Button */}
+        {selectedFile && (
+          <Button
+            onClick={async () => {
+              if (!selectedFile) return;
+              
+              console.log('Trying original upload method...');
+              const formData = new FormData();
+              formData.append('file', selectedFile);
+              
+              try {
+                const response = await fetch('/api/process-file', {
+                  method: 'POST',
+                  body: formData,
+                });
+                
+                if (response.ok) {
+                  const result = await response.json();
+                  console.log('Upload successful:', result);
+                  window.location.reload(); // Reload to trigger processing
+                } else {
+                  console.error('Upload failed:', response.status);
+                }
+              } catch (error) {
+                console.error('Upload error:', error);
+              }
+            }}
+            variant="outline"
+            className="w-full mt-2"
+            data-testid="button-upload-alternative"
+          >
+            <CloudUpload className="h-4 w-4 mr-2" />
+            Try Alternative Upload
+          </Button>
+        )}
       </CardContent>
     </Card>
   );

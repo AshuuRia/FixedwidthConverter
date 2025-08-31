@@ -68,18 +68,33 @@ export default function LiquorConverter() {
     try {
       console.log('Reading file content...', selectedFile.name, selectedFile.size);
       
-      // Use FileReader for better browser compatibility
+      // Use FileReader with better error handling
       const fileContent = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
+        
         reader.onload = (e) => {
+          console.log('FileReader onload triggered');
           if (e.target?.result) {
+            console.log('File read successfully, result type:', typeof e.target.result);
             resolve(e.target.result as string);
           } else {
-            reject(new Error('Failed to read file'));
+            console.error('FileReader result is null');
+            reject(new Error('Failed to read file - no result'));
           }
         };
-        reader.onerror = () => reject(new Error('File reading error'));
-        reader.readAsText(selectedFile);
+        
+        reader.onerror = (e) => {
+          console.error('FileReader error event:', e);
+          reject(new Error(`File reading error: ${reader.error?.message || 'Unknown error'}`));
+        };
+        
+        reader.onabort = () => {
+          console.error('FileReader was aborted');
+          reject(new Error('File reading was aborted'));
+        };
+        
+        console.log('Starting to read file as text...');
+        reader.readAsText(selectedFile, 'utf-8');
       });
       
       console.log('File content loaded, length:', fileContent.length);
@@ -126,22 +141,28 @@ export default function LiquorConverter() {
         });
       }
     } catch (error) {
+      console.error('Processing error:', error);
       setProcessingState(prev => ({ ...prev, isProcessing: false }));
       setHasError(true);
+      
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      console.log('Error message:', errorMessage);
+      
       setProcessedData({
         success: false,
         error: "Failed to process file",
-        details: error instanceof Error ? error.message : "Unknown error",
+        details: errorMessage,
         totalRecords: 0,
         uniqueBrands: 0,
         uniqueVendors: 0,
         avgPrice: 0,
         records: [],
       });
+      
       toast({
         variant: "destructive",
-        title: "Processing failed",
-        description: "Unable to process the file. Please check the format and try again.",
+        title: "Processing failed", 
+        description: `Error: ${errorMessage}. Please try again or check your file format.`,
       });
     }
   };
