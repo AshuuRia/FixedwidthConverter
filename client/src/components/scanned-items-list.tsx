@@ -107,6 +107,7 @@ export function ScannedItemsList({ sessionId, refreshTrigger }: ScannedItemsList
         .map(item => {
           console.log('Processing item for export:', item.product?.brandName);
           return {
+            "Liquor Code": item.product!.liquorCode,
             "ADA Number": item.product!.adaNumber,
             "ADA Name": item.product!.adaName,
             "Vendor Name": item.product!.vendorName,
@@ -228,6 +229,9 @@ export function ScannedItemsList({ sessionId, refreshTrigger }: ScannedItemsList
                         </h4>
                         <div className="grid grid-cols-2 gap-2 mt-2 text-sm">
                           <div>
+                            <span className="text-muted-foreground">Liquor Code:</span> {item.product.liquorCode}
+                          </div>
+                          <div>
                             <span className="text-muted-foreground">ADA:</span> {item.product.adaNumber}
                           </div>
                           <div>
@@ -238,6 +242,9 @@ export function ScannedItemsList({ sessionId, refreshTrigger }: ScannedItemsList
                           </div>
                           <div>
                             <span className="text-muted-foreground">Price:</span> {formatPrice(item.product.shelfPrice)}
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Proof:</span> {item.product.proof}
                           </div>
                         </div>
                       </>

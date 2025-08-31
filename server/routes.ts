@@ -411,11 +411,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log('Generating Excel for scanned items');
         worksheetData = [
           [
-            "ADA NUMBER", "ADA NAME", "VENDOR NAME", "PROOF", "BOTTLE SIZE", 
+            "LIQUOR CODE", "ADA NUMBER", "ADA NAME", "VENDOR NAME", "PROOF", "BOTTLE SIZE", 
             "PACK SIZE", "ON PREMISE", "OFF PREMISE", "SHELF PRICE", 
             "UPC CODE 1", "UPC CODE 2", "EFFECTIVE DATE"
           ],
           ...records.map(record => [
+            record["Liquor Code"],
             record["ADA Number"],
             record["ADA Name"],
             record["Vendor Name"],
