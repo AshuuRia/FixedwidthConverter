@@ -231,8 +231,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log('Looking up barcode:', barcode);
 
+      // Get all records for debugging
+      const allRecords = await storage.getLiquorRecords();
+      console.log('Total records in storage:', allRecords.length);
+      
       // Find matching liquor record
       const matchedProduct = await storage.findLiquorByBarcode(barcode);
+      
+      // Debug: Show some UPC codes for comparison
+      if (!matchedProduct && allRecords.length > 0) {
+        console.log('Sample UPC codes from first 3 records:');
+        allRecords.slice(0, 3).forEach((record, i) => {
+          console.log(`Record ${i + 1}: UPC1="${record.upcCode1}", UPC2="${record.upcCode2}"`);
+        });
+        
+        // Try to find any record with this UPC
+        const foundRecord = allRecords.find(r => 
+          r.upcCode1 === barcode || r.upcCode2 === barcode ||
+          r.upcCode1?.trim() === barcode || r.upcCode2?.trim() === barcode
+        );
+        console.log('Direct search result:', foundRecord ? 'FOUND' : 'NOT FOUND');
+      }
       
       if (matchedProduct) {
         // Add to scanned items if sessionId provided
