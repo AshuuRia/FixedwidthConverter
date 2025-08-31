@@ -68,10 +68,21 @@ export default function LiquorConverter() {
     try {
       console.log('Reading file content...', selectedFile.name, selectedFile.size);
       
-      // Read file as text instead of uploading binary
-      const fileContent = await selectedFile.text();
+      // Use FileReader for better browser compatibility
+      const fileContent = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          if (e.target?.result) {
+            resolve(e.target.result as string);
+          } else {
+            reject(new Error('Failed to read file'));
+          }
+        };
+        reader.onerror = () => reject(new Error('File reading error'));
+        reader.readAsText(selectedFile);
+      });
+      
       console.log('File content loaded, length:', fileContent.length);
-
       setProcessingState(prev => ({ ...prev, progress: 25 }));
 
       const response = await fetch('/api/process-file-content', {
