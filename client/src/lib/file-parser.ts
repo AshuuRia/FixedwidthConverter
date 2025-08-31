@@ -27,7 +27,7 @@ export function parseLine(line: string) {
       try {
         const numValue = parseFloat(value.replace(/[$,]/g, ''));
         if (!isNaN(numValue)) {
-          value = numValue;
+          value = numValue as any;
         }
       } catch {
         // Keep original value if conversion fails
@@ -50,9 +50,9 @@ export function parseLine(line: string) {
     proof: row.proof || "",
     bottleSize: row.bottlesize || "",
     packSize: row.packsize || "",
-    onPremisePrice: row.onpremiseprice || "",
-    offPremisePrice: row.offpremiseprice || "",
-    shelfPrice: row.shelfprice || "",
+    onPremisePrice: row.onpremiseprice || 0,
+    offPremisePrice: row.offpremiseprice || 0,
+    shelfPrice: row.shelfprice || 0,
     upcCode1: row.upccode1 || "",
     upcCode2: row.upccode2 || "",
     effectiveDate: row.effectivedate || "",

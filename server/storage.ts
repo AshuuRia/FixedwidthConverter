@@ -40,7 +40,22 @@ export class MemStorage implements IStorage {
 
   async createLiquorRecord(insertRecord: InsertLiquorRecord): Promise<LiquorRecord> {
     const id = randomUUID();
-    const record: LiquorRecord = { ...insertRecord, id };
+    const record: LiquorRecord = { 
+      id,
+      ...insertRecord,
+      adaNumber: insertRecord.adaNumber || null,
+      adaName: insertRecord.adaName || null,
+      vendorName: insertRecord.vendorName || null,
+      proof: insertRecord.proof || null,
+      bottleSize: insertRecord.bottleSize || null,
+      packSize: insertRecord.packSize || null,
+      onPremisePrice: insertRecord.onPremisePrice || null,
+      offPremisePrice: insertRecord.offPremisePrice || null,
+      shelfPrice: insertRecord.shelfPrice || null,
+      upcCode1: insertRecord.upcCode1 || null,
+      upcCode2: insertRecord.upcCode2 || null,
+      effectiveDate: insertRecord.effectiveDate || null,
+    };
     this.liquorRecords.set(id, record);
     return record;
   }
