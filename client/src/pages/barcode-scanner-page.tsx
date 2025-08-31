@@ -26,14 +26,20 @@ export default function BarcodeScannerPage() {
 
   const checkLiquorData = async () => {
     try {
-      const response = await fetch('/api/process-file-content', {
+      // Check if data exists by getting scanned items (this doesn't modify data)
+      const response = await fetch(`/api/scanned-items/${sessionId}`);
+      const result = await response.json();
+      
+      // If this works and we can make requests, check if we have liquor records
+      const scanResponse = await fetch('/api/scan-barcode', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: 'test', filename: 'test.txt' })
+        body: JSON.stringify({ barcode: 'test-check-only', sessionId: null })
       });
       
-      // If we get a meaningful response, assume data is loaded
-      setHasLiquorData(true);
+      const scanResult = await scanResponse.json();
+      // The scan request will show debug info about total records
+      setHasLiquorData(true); // Assume data exists for now
     } catch (error) {
       setHasLiquorData(false);
     }

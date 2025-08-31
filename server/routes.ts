@@ -253,6 +253,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const allRecords = await storage.getLiquorRecords();
       console.log('Total records in storage:', allRecords.length);
       
+      // Don't process test barcodes that are just checking status
+      if (barcode === 'test-check-only') {
+        return res.json({
+          success: false,
+          barcode,
+          error: "Status check only",
+          totalRecords: allRecords.length
+        });
+      }
+      
       // Find matching liquor record
       const matchedProduct = await storage.findLiquorByBarcode(barcode);
       
