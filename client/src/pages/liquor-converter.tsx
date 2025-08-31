@@ -65,33 +65,25 @@ export default function LiquorConverter() {
     });
     setHasError(false);
 
-    // Simulate progress for user feedback
-    const progressInterval = setInterval(() => {
-      setProcessingState(prev => ({
-        ...prev,
-        progress: Math.min(prev.progress + Math.random() * 15, 95),
-      }));
-    }, 200);
-
     try {
-      const formData = new FormData();
-      formData.append('file', selectedFile);
+      console.log('Reading file content...', selectedFile.name, selectedFile.size);
+      
+      // Read file as text instead of uploading binary
+      const fileContent = await selectedFile.text();
+      console.log('File content loaded, length:', fileContent.length);
 
-      console.log('Starting file upload...', selectedFile.name, selectedFile.size);
+      setProcessingState(prev => ({ ...prev, progress: 25 }));
 
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minute timeout
-
-      const response = await fetch('/api/process-file', {
+      const response = await fetch('/api/process-file-content', {
         method: 'POST',
-        body: formData,
-        signal: controller.signal,
         headers: {
-          // Don't set Content-Type, let browser set it with boundary for multipart
-        }
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          content: fileContent,
+          filename: selectedFile.name
+        })
       });
-
-      clearTimeout(timeoutId);
 
       console.log('Response received:', response.status, response.statusText);
 
@@ -104,7 +96,6 @@ export default function LiquorConverter() {
       const result = await response.json();
       console.log('Processing result:', result);
       
-      clearInterval(progressInterval);
       setProcessingState(prev => ({ ...prev, progress: 100, isProcessing: false }));
 
       if (result.success) {
@@ -124,7 +115,6 @@ export default function LiquorConverter() {
         });
       }
     } catch (error) {
-      clearInterval(progressInterval);
       setProcessingState(prev => ({ ...prev, isProcessing: false }));
       setHasError(true);
       setProcessedData({

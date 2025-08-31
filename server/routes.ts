@@ -148,6 +148,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Process file content directly (alternative to file upload)
+  app.post("/api/process-file-content", async (req, res) => {
+    console.log('Processing file content request...');
+    
+    try {
+      const { content, filename } = req.body;
+      
+      if (!content) {
+        console.log('No content provided in request');
+        return res.status(400).json({ success: false, error: "No file content provided" });
+      }
+
+      console.log('Content received for file:', filename, 'Length:', content.length);
+
+      const lines = content.split('\n').filter((line: string) => line.trim());
+      console.log('File parsed, total lines:', lines.length);
+      
+      const records = [];
+      const brands = new Set();
+      const vendors = new Set();
+      const prices: number[] = [];
+
+      for (const line of lines) {
+        if (line.trim()) {
+          const record = parseLine(line);
+          records.push(record);
+          
+          if (record.brandName) brands.add(record.brandName);
+          if (record.vendorName) vendors.add(record.vendorName);
+          
+          // Collect prices for average calculation
+          if (typeof record.shelfPrice === 'number') {
+            prices.push(record.shelfPrice);
+          }
+        }
+      }
+
+      const avgPrice = prices.length > 0 
+        ? prices.reduce((sum, price) => sum + price, 0) / prices.length 
+        : 0;
+
+      const result = {
+        success: true,
+        totalRecords: records.length,
+        uniqueBrands: brands.size,
+        uniqueVendors: vendors.size,
+        avgPrice: Number(avgPrice.toFixed(2)),
+        records: records.slice(0, 100), // Return first 100 for preview
+        allRecords: records, // Include all records for download
+      };
+
+      console.log('Processing complete:', result.totalRecords, 'records processed');
+      res.json(result);
+    } catch (error) {
+      console.error("File content processing error:", error);
+      
+      // Check if response was already sent
+      if (!res.headersSent) {
+        res.status(500).json({ 
+          success: false, 
+          error: "Failed to process file content",
+          details: error instanceof Error ? error.message : "Unknown error"
+        });
+      }
+    }
+  });
+
   // Generate Excel file
   app.post("/api/generate-excel", async (req, res) => {
     try {
