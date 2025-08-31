@@ -9,7 +9,17 @@ import * as XLSX from "xlsx";
 const upload = multer({ 
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 50 * 1024 * 1024 // 50MB limit
+    fileSize: 50 * 1024 * 1024, // 50MB limit
+    files: 1
+  },
+  fileFilter: (req, file, cb) => {
+    console.log('File filter check:', file.originalname, file.mimetype);
+    // Accept text files and files without specific MIME type
+    if (file.mimetype === 'text/plain' || file.mimetype === 'application/octet-stream' || !file.mimetype) {
+      cb(null, true);
+    } else {
+      cb(null, true); // Accept all files for now to avoid issues
+    }
   }
 });
 
@@ -78,13 +88,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Process liquor data file
   app.post("/api/process-file", upload.single('file'), async (req, res) => {
+    console.log('Processing file upload request...');
+    
     try {
       if (!req.file) {
+        console.log('No file uploaded in request');
         return res.status(400).json({ success: false, error: "No file uploaded" });
       }
 
+      console.log('File received:', req.file.originalname, 'Size:', req.file.size, 'bytes');
+
       const fileContent = req.file.buffer.toString('utf-8');
       const lines = fileContent.split('\n').filter(line => line.trim());
+      
+      console.log('File parsed, total lines:', lines.length);
       
       const records = [];
       const brands = new Set();
@@ -123,11 +140,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(result);
     } catch (error) {
       console.error("File processing error:", error);
-      res.status(500).json({ 
-        success: false, 
-        error: "Failed to process file",
-        details: error instanceof Error ? error.message : "Unknown error"
-      });
+      
+      // Check if response was already sent
+      if (!res.headersSent) {
+        res.status(500).json({ 
+          success: false, 
+          error: "Failed to process file",
+          details: error instanceof Error ? error.message : "Unknown error"
+        });
+      }
     }
   });
 

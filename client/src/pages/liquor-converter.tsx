@@ -77,16 +77,32 @@ export default function LiquorConverter() {
       const formData = new FormData();
       formData.append('file', selectedFile);
 
+      console.log('Starting file upload...', selectedFile.name, selectedFile.size);
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
+
       const response = await fetch('/api/process-file', {
         method: 'POST',
         body: formData,
+        signal: controller.signal,
+        headers: {
+          // Don't set Content-Type, let browser set it with boundary for multipart
+        }
       });
 
+      clearTimeout(timeoutId);
+
+      console.log('Response received:', response.status, response.statusText);
+
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorText = await response.text();
+        console.error('Response error:', errorText);
+        throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
       }
 
       const result = await response.json();
+      console.log('Processing result:', result);
       
       clearInterval(progressInterval);
       setProcessingState(prev => ({ ...prev, progress: 100, isProcessing: false }));
