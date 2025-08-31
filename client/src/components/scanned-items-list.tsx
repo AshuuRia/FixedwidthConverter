@@ -98,23 +98,31 @@ export function ScannedItemsList({ sessionId, refreshTrigger }: ScannedItemsList
     }
 
     try {
+      console.log('Exporting scanned items:', scannedItems.length);
+      console.log('Items with products:', scannedItems.filter(item => item.product).length);
+      
       // Format data for Excel export with only the columns you specified
       const excelData = scannedItems
         .filter(item => item.product)
-        .map(item => ({
-          "ADA Number": item.product!.adaNumber,
-          "ADA Name": item.product!.adaName,
-          "Vendor Name": item.product!.vendorName,
-          "Proof": item.product!.proof,
-          "Bottle Size": item.product!.bottleSize,
-          "Pack Size": item.product!.packSize,
-          "On Premise": item.product!.onPremisePrice,
-          "Off Premise": item.product!.offPremisePrice,
-          "Shelf Price": item.product!.shelfPrice,
-          "UPC Code 1": item.product!.upcCode1,
-          "UPC Code 2": item.product!.upcCode2,
-          "Effective Date": item.product!.effectiveDate,
-        }));
+        .map(item => {
+          console.log('Processing item for export:', item.product?.brandName);
+          return {
+            "ADA Number": item.product!.adaNumber,
+            "ADA Name": item.product!.adaName,
+            "Vendor Name": item.product!.vendorName,
+            "Proof": item.product!.proof,
+            "Bottle Size": item.product!.bottleSize,
+            "Pack Size": item.product!.packSize,
+            "On Premise": item.product!.onPremisePrice,
+            "Off Premise": item.product!.offPremisePrice,
+            "Shelf Price": item.product!.shelfPrice,
+            "UPC Code 1": item.product!.upcCode1,
+            "UPC Code 2": item.product!.upcCode2,
+            "Effective Date": item.product!.effectiveDate,
+          };
+        });
+
+      console.log('Excel data prepared:', excelData.length, 'rows');
 
       const response = await fetch('/api/generate-excel', {
         method: 'POST',
