@@ -383,49 +383,97 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { records, filename } = req.body;
       
+      console.log('Excel generation request:', {
+        recordsCount: records?.length,
+        filename,
+        sampleRecord: records?.[0]
+      });
+      
       if (!records || !Array.isArray(records)) {
+        console.error('Invalid records data for Excel generation');
         return res.status(400).json({ error: "Invalid records data" });
       }
 
-      // Create worksheet data with headers
-      const worksheetData = [
-        [
-          "LIQUOR CODE", "BRAND NAME", "ADA NUMBER", "ADA NAME", "VENDOR NAME",
-          "PROOF", "BOTTLE SIZE", "PACK SIZE", "ON PREMISE PRICE", "OFF PREMISE PRICE",
-          "SHELF PRICE", "UPC CODE 1", "UPC CODE 2", "EFFECTIVE DATE"
-        ],
-        ...records.map(record => [
-          record.liquorCode,
-          record.brandName,
-          record.adaNumber,
-          record.adaName,
-          record.vendorName,
-          record.proof,
-          record.bottleSize,
-          record.packSize,
-          record.onPremisePrice,
-          record.offPremisePrice,
-          record.shelfPrice,
-          record.upcCode1,
-          record.upcCode2,
-          record.effectiveDate,
-        ])
-      ];
+      if (records.length === 0) {
+        console.error('Empty records array for Excel generation');
+        return res.status(400).json({ error: "No data to export" });
+      }
+
+      console.log('Processing', records.length, 'records for Excel export');
+
+      // Check if this is scanned items data (has different format)
+      const isScannedItemsData = records[0] && records[0]["ADA Number"] !== undefined;
+      
+      let worksheetData;
+      
+      if (isScannedItemsData) {
+        // Handle scanned items format
+        console.log('Generating Excel for scanned items');
+        worksheetData = [
+          [
+            "ADA NUMBER", "ADA NAME", "VENDOR NAME", "PROOF", "BOTTLE SIZE", 
+            "PACK SIZE", "ON PREMISE", "OFF PREMISE", "SHELF PRICE", 
+            "UPC CODE 1", "UPC CODE 2", "EFFECTIVE DATE"
+          ],
+          ...records.map(record => [
+            record["ADA Number"],
+            record["ADA Name"],
+            record["Vendor Name"],
+            record["Proof"],
+            record["Bottle Size"],
+            record["Pack Size"],
+            record["On Premise"],
+            record["Off Premise"],
+            record["Shelf Price"],
+            record["UPC Code 1"],
+            record["UPC Code 2"],
+            record["Effective Date"],
+          ])
+        ];
+      } else {
+        // Handle original liquor data format
+        console.log('Generating Excel for liquor data');
+        worksheetData = [
+          [
+            "LIQUOR CODE", "BRAND NAME", "ADA NUMBER", "ADA NAME", "VENDOR NAME",
+            "PROOF", "BOTTLE SIZE", "PACK SIZE", "ON PREMISE PRICE", "OFF PREMISE PRICE",
+            "SHELF PRICE", "UPC CODE 1", "UPC CODE 2", "EFFECTIVE DATE"
+          ],
+          ...records.map(record => [
+            record.liquorCode,
+            record.brandName,
+            record.adaNumber,
+            record.adaName,
+            record.vendorName,
+            record.proof,
+            record.bottleSize,
+            record.packSize,
+            record.onPremisePrice,
+            record.offPremisePrice,
+            record.shelfPrice,
+            record.upcCode1,
+            record.upcCode2,
+            record.effectiveDate,
+          ])
+        ];
+      }
 
       // Create workbook and worksheet
       const workbook = XLSX.utils.book_new();
       const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
       
       // Add worksheet to workbook
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Liquor Data");
+      const sheetName = isScannedItemsData ? "Scanned Items" : "Liquor Data";
+      XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
       
       // Generate Excel buffer
       const excelBuffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
       
+      console.log('Excel buffer created, size:', excelBuffer.length, 'bytes');
+      
       // Set headers for file download
-      const outputFilename = filename ? 
-        filename.replace(/\.[^/.]+$/, "_converted.xlsx") : 
-        "liquor_data_converted.xlsx";
+      const outputFilename = filename || 
+        (isScannedItemsData ? "scanned_liquor.xlsx" : "liquor_data.xlsx");
       
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       res.setHeader('Content-Disposition', `attachment; filename="${outputFilename}"`);
