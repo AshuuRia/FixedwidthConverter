@@ -287,7 +287,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await storage.addScannedItem({
             sessionId,
             liquorRecordId: matchedProduct.id,
-            scannedBarcode: barcode,
+            scannedBarcode: barcode, // Store the actual scanned barcode, not the MLCC version
             scannedAt: new Date().toISOString(),
             quantity: 1,
           });
@@ -297,8 +297,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         res.json({
           success: true,
-          barcode,
-          matchedProduct,
+          barcode: barcode, // Return the actual scanned barcode
+          matchedProduct: {
+            ...matchedProduct,
+            // Keep the product details but note that we matched using the scanned barcode
+            scannedUpc: barcode, // Add the actual scanned UPC for reference
+          },
         });
       } else {
         console.log('No product found for barcode:', barcode);

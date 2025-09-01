@@ -77,9 +77,26 @@ export class MemStorage implements IStorage {
   }
 
   async findLiquorByBarcode(barcode: string): Promise<LiquorRecord | undefined> {
-    return Array.from(this.liquorRecords.values()).find(
-      (record) => record.upcCode1 === barcode || record.upcCode2 === barcode
-    );
+    // Helper function to normalize UPC codes by removing leading zeros
+    const normalizeUpc = (upc: string | null): string => {
+      if (!upc) return '';
+      return upc.replace(/^0+/, '') || '0'; // Remove leading zeros, but keep at least one digit
+    };
+
+    const normalizedBarcode = normalizeUpc(barcode);
+    
+    return Array.from(this.liquorRecords.values()).find((record) => {
+      const normalizedUpc1 = normalizeUpc(record.upcCode1);
+      const normalizedUpc2 = normalizeUpc(record.upcCode2);
+      
+      // Try exact match first
+      if (record.upcCode1 === barcode || record.upcCode2 === barcode) {
+        return true;
+      }
+      
+      // Then try normalized match (without leading zeros)
+      return normalizedUpc1 === normalizedBarcode || normalizedUpc2 === normalizedBarcode;
+    });
   }
 
   async addScannedItem(insertItem: InsertScannedItem): Promise<ScannedItem> {
