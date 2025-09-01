@@ -117,7 +117,7 @@ export function ScannedItemsList({ sessionId, refreshTrigger }: ScannedItemsList
             "On Premise": item.product!.onPremisePrice,
             "Off Premise": item.product!.offPremisePrice,
             "Shelf Price": item.product!.shelfPrice,
-            "UPC Code 1": item.product!.upcCode1,
+            "UPC Code 1": item.scannedBarcode, // Use the actual scanned barcode
             "UPC Code 2": item.product!.upcCode2,
             "Effective Date": item.product!.effectiveDate,
           };

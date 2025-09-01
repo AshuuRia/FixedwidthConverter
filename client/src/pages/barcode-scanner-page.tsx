@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react";
 import { BarcodeScanner } from "@/components/barcode-scanner";
 import { ScannedItemsList } from "@/components/scanned-items-list";
+import { LiquorSearch } from "@/components/liquor-search";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { FileText, Scan, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import type { LiquorRecord } from "@shared/schema";
 
 export default function BarcodeScannerPage() {
   const [sessionId] = useState(() => `session_${Date.now()}`);
@@ -42,6 +44,46 @@ export default function BarcodeScannerPage() {
       setHasLiquorData(true); // Assume data exists for now
     } catch (error) {
       setHasLiquorData(false);
+    }
+  };
+
+  const handleSearchSelect = async (liquor: LiquorRecord) => {
+    console.log('Manual search selected:', liquor.brandName);
+    
+    try {
+      const response = await fetch('/api/scan-barcode', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          barcode: liquor.upcCode1 || 'manual-search',
+          sessionId,
+        }),
+      });
+
+      const result = await response.json();
+      
+      setScanStats(prev => ({
+        totalScans: prev.totalScans + 1,
+        matchedProducts: prev.matchedProducts + 1,
+        lastScanTime: new Date().toLocaleTimeString(),
+      }));
+
+      toast({
+        title: "Product added!",
+        description: `${liquor.brandName} - ${liquor.bottleSize}`,
+      });
+
+      // Refresh the scanned items list
+      setRefreshTrigger(prev => prev + 1);
+    } catch (error) {
+      console.error('Search select error:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add product to list",
+        variant: "destructive",
+      });
     }
   };
 
@@ -196,6 +238,27 @@ export default function BarcodeScannerPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Search Section */}
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Manual Search
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col space-y-2">
+              <p className="text-sm text-muted-foreground mb-4">
+                Can't scan a barcode? Search for liquor products by name, code, or UPC and add them to your list.
+              </p>
+              <LiquorSearch 
+                onSelect={handleSearchSelect}
+                placeholder="Search by name, code, or UPC..."
+              />
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Scanner and Results Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
