@@ -38,4 +38,3 @@ task = "shell.exec"
 args = "npm run dev"
 
 [agent]
-integrations = ["javascript_mem_db==1.0.0"]

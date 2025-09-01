@@ -490,6 +490,89 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Fetch liquor data directly from Michigan state website
+  app.post("/api/fetch-liquor-data", async (req, res) => {
+    console.log('Fetching liquor data from Michigan state website...');
+    
+    try {
+      const url = 'https://documents.apps.lara.state.mi.us/mlcc/webprbk.txt';
+      console.log('Downloading from:', url);
+      
+      // Fetch the data from the website
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const fileContent = await response.text();
+      console.log('Downloaded content, length:', fileContent.length);
+      
+      const lines = fileContent.split('\n').filter((line: string) => line.trim());
+      console.log('File parsed, total lines:', lines.length);
+      
+      const records = [];
+      const brands = new Set();
+      const vendors = new Set();
+      const prices: number[] = [];
+
+      for (const line of lines) {
+        if (line.trim()) {
+          const record = parseLine(line);
+          records.push(record);
+          
+          if (record.brandName) brands.add(record.brandName);
+          if (record.vendorName) vendors.add(record.vendorName);
+          
+          // Collect prices for average calculation
+          if (typeof record.shelfPrice === 'number') {
+            prices.push(record.shelfPrice);
+          }
+        }
+      }
+
+      const avgPrice = prices.length > 0 
+        ? prices.reduce((sum, price) => sum + price, 0) / prices.length 
+        : 0;
+
+      // Clear existing records and save new ones to storage
+      await storage.clearLiquorRecords();
+      console.log('Cleared existing liquor records');
+      
+      for (const record of records) {
+        await storage.createLiquorRecord(record);
+      }
+      console.log(`Saved ${records.length} liquor records to storage`);
+
+      const result = {
+        success: true,
+        totalRecords: records.length,
+        uniqueBrands: brands.size,
+        uniqueVendors: vendors.size,
+        avgPrice: Number(avgPrice.toFixed(2)),
+        records: records.slice(0, 100), // Return first 100 for preview
+        allRecords: records, // Include all records for download
+        source: 'Michigan State Website',
+        url: url,
+        fetchedAt: new Date().toISOString(),
+      };
+
+      console.log('Data fetch and processing complete:', result.totalRecords, 'records processed');
+      res.json(result);
+    } catch (error) {
+      console.error("Data fetch error:", error);
+      
+      // Check if response was already sent
+      if (!res.headersSent) {
+        res.status(500).json({ 
+          success: false, 
+          error: "Failed to fetch liquor data from website",
+          details: error instanceof Error ? error.message : "Unknown error"
+        });
+      }
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

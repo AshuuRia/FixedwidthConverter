@@ -1,12 +1,12 @@
-import { useState } from "react";
-import { FileUpload } from "@/components/file-upload";
-import { DataPreview } from "@/components/data-preview";
+import { useState, useEffect } from "react";
 import { ProgressIndicator } from "@/components/progress-indicator";
 import { SummaryStats } from "@/components/summary-stats";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Download, HelpCircle, Book, Scan } from "lucide-react";
+import { FileText, Download, HelpCircle, Book, Scan, RefreshCw, CheckCircle, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
 
 interface ProcessingState {
   isProcessing: boolean;
@@ -25,10 +25,12 @@ interface ProcessedData {
   allRecords?: any[];
   error?: string;
   details?: string;
+  source?: string;
+  url?: string;
+  fetchedAt?: string;
 }
 
 export default function LiquorConverter() {
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [processedData, setProcessedData] = useState<ProcessedData | null>(null);
   const [processingState, setProcessingState] = useState<ProcessingState>({
     isProcessing: false,
@@ -38,25 +40,29 @@ export default function LiquorConverter() {
   });
   const [hasError, setHasError] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
+  const [shouldRedirect, setShouldRedirect] = useState(false);
+  const [countdownSeconds, setCountdownSeconds] = useState(5);
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
 
-  const handleFileSelect = (file: File) => {
-    setSelectedFile(file);
-    setProcessedData(null);
-    setHasError(false);
-    setIsComplete(false);
-  };
+  // Auto-load data on component mount
+  useEffect(() => {
+    loadLiquorData();
+  }, []);
 
-  const handleFileRemove = () => {
-    setSelectedFile(null);
-    setProcessedData(null);
-    setHasError(false);
-    setIsComplete(false);
-  };
+  // Handle automatic redirect countdown
+  useEffect(() => {
+    if (shouldRedirect && countdownSeconds > 0) {
+      const timer = setTimeout(() => {
+        setCountdownSeconds(prev => prev - 1);
+      }, 1000);
+      return () => clearTimeout(timer);
+    } else if (shouldRedirect && countdownSeconds === 0) {
+      setLocation('/scanner');
+    }
+  }, [shouldRedirect, countdownSeconds, setLocation]);
 
-  const processFile = async () => {
-    if (!selectedFile) return;
-
+  const loadLiquorData = async () => {
     setProcessingState({
       isProcessing: true,
       progress: 0,
@@ -64,54 +70,23 @@ export default function LiquorConverter() {
       totalRows: 0,
     });
     setHasError(false);
+    setIsComplete(false);
 
     try {
-      console.log('Reading file content...', selectedFile.name, selectedFile.size);
+      console.log('Fetching liquor data from Michigan state website...');
       
-      // Use FileReader with better error handling
-      const fileContent = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        
-        reader.onload = (e) => {
-          console.log('FileReader onload triggered');
-          if (e.target?.result) {
-            console.log('File read successfully, result type:', typeof e.target.result);
-            resolve(e.target.result as string);
-          } else {
-            console.error('FileReader result is null');
-            reject(new Error('Failed to read file - no result'));
-          }
-        };
-        
-        reader.onerror = (e) => {
-          console.error('FileReader error event:', e);
-          reject(new Error(`File reading error: ${reader.error?.message || 'Unknown error'}`));
-        };
-        
-        reader.onabort = () => {
-          console.error('FileReader was aborted');
-          reject(new Error('File reading was aborted'));
-        };
-        
-        console.log('Starting to read file as text...');
-        reader.readAsText(selectedFile, 'utf-8');
-      });
-      
-      console.log('File content loaded, length:', fileContent.length);
       setProcessingState(prev => ({ ...prev, progress: 25 }));
 
-      const response = await fetch('/api/process-file-content', {
+      const response = await fetch('/api/fetch-liquor-data', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          content: fileContent,
-          filename: selectedFile.name
-        })
       });
 
       console.log('Response received:', response.status, response.statusText);
+      
+      setProcessingState(prev => ({ ...prev, progress: 75 }));
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -127,21 +102,22 @@ export default function LiquorConverter() {
       if (result.success) {
         setProcessedData(result);
         setIsComplete(true);
+        setShouldRedirect(true);
         toast({
-          title: "File processed successfully!",
-          description: `${result.totalRecords} records parsed from ${selectedFile.name}`,
+          title: "Data loaded successfully!",
+          description: `${result.totalRecords} records loaded from Michigan state website`,
         });
       } else {
         setHasError(true);
         setProcessedData(result);
         toast({
           variant: "destructive",
-          title: "Processing failed",
+          title: "Loading failed",
           description: result.error || "Unknown error occurred",
         });
       }
     } catch (error) {
-      console.error('Processing error:', error);
+      console.error('Data loading error:', error);
       setProcessingState(prev => ({ ...prev, isProcessing: false }));
       setHasError(true);
       
@@ -150,7 +126,7 @@ export default function LiquorConverter() {
       
       setProcessedData({
         success: false,
-        error: "Failed to process file",
+        error: "Failed to load data from website",
         details: errorMessage,
         totalRecords: 0,
         uniqueBrands: 0,
@@ -161,8 +137,8 @@ export default function LiquorConverter() {
       
       toast({
         variant: "destructive",
-        title: "Processing failed", 
-        description: `Error: ${errorMessage}. Please try again or check your file format.`,
+        title: "Loading failed", 
+        description: `Error: ${errorMessage}. Please try again.`,
       });
     }
   };
@@ -178,7 +154,7 @@ export default function LiquorConverter() {
         },
         body: JSON.stringify({
           records: processedData.allRecords || processedData.records,
-          filename: selectedFile?.name || 'liquor_data.txt',
+          filename: 'michigan_liquor_data.txt',
         }),
       });
 
@@ -190,9 +166,7 @@ export default function LiquorConverter() {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = selectedFile?.name ? 
-        selectedFile.name.replace(/\.[^/.]+$/, "_converted.xlsx") : 
-        "liquor_data_converted.xlsx";
+      a.download = "michigan_liquor_data.xlsx";
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -211,6 +185,16 @@ export default function LiquorConverter() {
     }
   };
 
+  const goToScanner = () => {
+    setLocation('/scanner');
+  };
+
+  const retryDataLoad = () => {
+    setShouldRedirect(false);
+    setCountdownSeconds(5);
+    loadLiquorData();
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -222,19 +206,14 @@ export default function LiquorConverter() {
                 <FileText className="h-6 w-6" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-foreground">Liquor Data Parser</h1>
-                <p className="text-sm text-muted-foreground">Convert fixed-width format to Excel</p>
+                <h1 className="text-2xl font-bold text-foreground">Liquor Inventory System</h1>
+                <p className="text-sm text-muted-foreground">Loading data from Michigan state website</p>
               </div>
             </div>
             <div className="hidden sm:flex items-center space-x-4">
-              <a 
-                href="/scanner" 
-                className="bg-primary text-primary-foreground px-4 py-2 rounded-md text-sm font-medium hover:bg-primary/90 transition-colors"
-                data-testid="link-scanner"
-              >
-                <Scan className="h-4 w-4 mr-2 inline" />
-                Barcode Scanner
-              </a>
+              <Badge variant={isComplete ? "default" : "secondary"}>
+                {isComplete ? "Ready to Scan" : "Loading Data"}
+              </Badge>
               <div className="text-sm text-muted-foreground">
                 {processedData?.totalRecords || 0} records loaded
               </div>
@@ -244,15 +223,66 @@ export default function LiquorConverter() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* File Upload Section */}
+        {/* Data Loading Section */}
         <div className="mb-8">
-          <FileUpload
-            selectedFile={selectedFile}
-            onFileSelect={handleFileSelect}
-            onFileRemove={handleFileRemove}
-            onProcess={processFile}
-            isProcessing={processingState.isProcessing}
-          />
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-center">
+                <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
+                  {processingState.isProcessing ? (
+                    <RefreshCw className="h-8 w-8 text-primary animate-spin" />
+                  ) : isComplete ? (
+                    <CheckCircle className="h-8 w-8 text-emerald-600" />
+                  ) : hasError ? (
+                    <AlertCircle className="h-8 w-8 text-destructive" />
+                  ) : (
+                    <FileText className="h-8 w-8 text-primary" />
+                  )}
+                </div>
+                
+                {processingState.isProcessing && (
+                  <div>
+                    <h2 className="text-xl font-semibold mb-2 text-card-foreground">Loading Liquor Data</h2>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Downloading latest data from Michigan state website...
+                    </p>
+                  </div>
+                )}
+                
+                {isComplete && !hasError && (
+                  <div>
+                    <h2 className="text-xl font-semibold mb-2 text-card-foreground">Data Loaded Successfully!</h2>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Ready to start scanning barcodes. Redirecting to scanner in {countdownSeconds} seconds...
+                    </p>
+                    <div className="flex justify-center space-x-4">
+                      <Button onClick={goToScanner} data-testid="button-go-scanner">
+                        <Scan className="h-4 w-4 mr-2" />
+                        Go to Scanner Now
+                      </Button>
+                      <Button variant="outline" onClick={downloadExcel} data-testid="button-download">
+                        <Download className="h-4 w-4 mr-2" />
+                        Download Data
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                
+                {hasError && (
+                  <div>
+                    <h2 className="text-xl font-semibold mb-2 text-destructive">Loading Failed</h2>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Unable to load data from the Michigan state website
+                    </p>
+                    <Button onClick={retryDataLoad} variant="outline" data-testid="button-retry">
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Retry Loading
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Progress Section */}
@@ -295,123 +325,61 @@ export default function LiquorConverter() {
           </div>
         )}
 
-        {/* Success Section */}
+        {/* Data Summary */}
         {isComplete && !hasError && processedData && (
           <div className="mb-8 fade-in">
-            <Card className="bg-emerald-50 dark:bg-emerald-950 border-emerald-200 dark:border-emerald-800">
-              <CardContent className="pt-6">
-                <div className="flex items-center space-x-3">
-                  <div className="bg-emerald-500 text-white p-2 rounded-full">
-                    <FileText className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-emerald-900 dark:text-emerald-100">Conversion Complete!</h3>
-                    <p className="text-emerald-700 dark:text-emerald-300">Your file has been successfully converted to Excel format.</p>
-                  </div>
-                </div>
-                <div className="mt-4 flex items-center space-x-4">
-                  <span className="text-sm text-emerald-600 dark:text-emerald-400">
-                    File: <span className="font-mono">
-                      {selectedFile?.name?.replace(/\.[^/.]+$/, "_converted.xlsx") || "liquor_data_converted.xlsx"}
-                    </span>
-                  </span>
-                  <button 
-                    onClick={downloadExcel}
-                    className="text-emerald-600 hover:text-emerald-800 dark:text-emerald-400 dark:hover:text-emerald-200 text-sm font-medium transition-colors"
-                    data-testid="button-download-again"
-                  >
-                    <Download className="h-4 w-4 mr-1 inline" />
-                    Download Again
-                  </button>
-                </div>
-              </CardContent>
-            </Card>
+            <SummaryStats data={processedData} />
           </div>
         )}
 
-        {/* Data Preview and Summary */}
-        {isComplete && !hasError && processedData && (
-          <>
-            <div className="mb-8 fade-in">
-              <SummaryStats data={processedData} />
-            </div>
-            <div className="mb-8 fade-in">
-              <DataPreview 
-                data={processedData} 
-                onDownload={downloadExcel}
-              />
-            </div>
-          </>
-        )}
-
-        {/* Instructions Section */}
+        {/* Information Section */}
         <Card>
           <CardContent className="pt-6">
-            <h3 className="text-lg font-semibold mb-4 text-card-foreground">File Format Requirements</h3>
+            <h3 className="text-lg font-semibold mb-4 text-card-foreground">About This System</h3>
             
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div>
-                <h4 className="font-medium text-card-foreground mb-3">Expected Field Structure</h4>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between border-b border-border pb-1">
-                    <span className="text-muted-foreground">Liquor Code</span>
-                    <span className="font-mono text-card-foreground">0-5</span>
+                <h4 className="font-medium text-card-foreground mb-3">Data Source</h4>
+                <div className="space-y-3 text-sm text-muted-foreground">
+                  <div className="flex items-start space-x-2">
+                    <FileText className="h-4 w-4 text-primary mt-0.5" />
+                    <span>Data is automatically loaded from the Michigan State website</span>
                   </div>
-                  <div className="flex justify-between border-b border-border pb-1">
-                    <span className="text-muted-foreground">Brand Name</span>
-                    <span className="font-mono text-card-foreground">5-37</span>
+                  <div className="flex items-start space-x-2">
+                    <FileText className="h-4 w-4 text-primary mt-0.5" />
+                    <span>Source: documents.apps.lara.state.mi.us/mlcc/webprbk.txt</span>
                   </div>
-                  <div className="flex justify-between border-b border-border pb-1">
-                    <span className="text-muted-foreground">ADA Number</span>
-                    <span className="font-mono text-card-foreground">37-40</span>
+                  <div className="flex items-start space-x-2">
+                    <FileText className="h-4 w-4 text-primary mt-0.5" />
+                    <span>Updates automatically with the latest liquor inventory data</span>
                   </div>
-                  <div className="flex justify-between border-b border-border pb-1">
-                    <span className="text-muted-foreground">ADA Name</span>
-                    <span className="font-mono text-card-foreground">40-65</span>
-                  </div>
-                  <div className="flex justify-between border-b border-border pb-1">
-                    <span className="text-muted-foreground">Vendor Name</span>
-                    <span className="font-mono text-card-foreground">65-90</span>
-                  </div>
-                  <div className="flex justify-between border-b border-border pb-1">
-                    <span className="text-muted-foreground">Proof</span>
-                    <span className="font-mono text-card-foreground">110-115</span>
-                  </div>
-                  <div className="flex justify-between border-b border-border pb-1">
-                    <span className="text-muted-foreground">Bottle Size</span>
-                    <span className="font-mono text-card-foreground">115-122</span>
+                  <div className="flex items-start space-x-2">
+                    <FileText className="h-4 w-4 text-primary mt-0.5" />
+                    <span>No manual file uploads required</span>
                   </div>
                 </div>
               </div>
               
               <div>
-                <h4 className="font-medium text-card-foreground mb-3">Data Processing Notes</h4>
+                <h4 className="font-medium text-card-foreground mb-3">How to Use</h4>
                 <div className="space-y-3 text-sm text-muted-foreground">
                   <div className="flex items-start space-x-2">
-                    <FileText className="h-4 w-4 text-primary mt-0.5" />
-                    <span>Price fields are automatically converted to numeric values</span>
+                    <span className="text-primary">1.</span>
+                    <span>Data loads automatically when you visit this page</span>
                   </div>
                   <div className="flex items-start space-x-2">
-                    <FileText className="h-4 w-4 text-primary mt-0.5" />
-                    <span>Dates are reformatted from MMDDYYYY to YYYY-MM-DD</span>
+                    <span className="text-primary">2.</span>
+                    <span>Once loaded, you'll be redirected to the barcode scanner</span>
                   </div>
                   <div className="flex items-start space-x-2">
-                    <FileText className="h-4 w-4 text-primary mt-0.5" />
-                    <span>Output file maintains original filename with "_converted.xlsx" suffix</span>
+                    <span className="text-primary">3.</span>
+                    <span>Scan product barcodes to build your inventory list</span>
                   </div>
                   <div className="flex items-start space-x-2">
-                    <FileText className="h-4 w-4 text-primary mt-0.5" />
-                    <span>All data processing happens locally in your browser</span>
+                    <span className="text-primary">4.</span>
+                    <span>Export your scanned inventory to Excel when finished</span>
                   </div>
                 </div>
-              </div>
-            </div>
-
-            {/* Sample Data Format */}
-            <div className="mt-6">
-              <h4 className="font-medium text-card-foreground mb-3">Sample Input Format</h4>
-              <div className="bg-muted p-4 rounded-md font-mono text-xs overflow-x-auto">
-                <pre className="text-muted-foreground whitespace-pre">08234Jack Daniel's Old No. 7        001Premium Whiskey        Brown-Forman Corp                                           80    750ML  12 $28.99    $26.99    $24.99    01234567890129876543210987015012024</pre>
               </div>
             </div>
           </CardContent>
