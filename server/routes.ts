@@ -360,6 +360,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Delete individual scanned item
+  app.delete("/api/scanned-items/:sessionId/:itemId", async (req, res) => {
+    try {
+      const { itemId } = req.params;
+      console.log('Deleting scanned item:', itemId);
+
+      const deleted = await storage.deleteScannedItem(itemId);
+      
+      if (deleted) {
+        res.json({
+          success: true,
+          message: "Item deleted",
+        });
+      } else {
+        res.status(404).json({
+          success: false,
+          error: "Item not found",
+        });
+      }
+    } catch (error) {
+      console.error("Delete item error:", error);
+      
+      res.status(500).json({
+        success: false,
+        error: "Failed to delete item",
+      });
+    }
+  });
+
   // Clear scanned items for a session
   app.delete("/api/scanned-items/:sessionId", async (req, res) => {
     try {
@@ -574,6 +603,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
           details: error instanceof Error ? error.message : "Unknown error"
         });
       }
+    }
+  });
+
+  // Add item directly (for manual search selections)
+  app.post("/api/add-item", async (req, res) => {
+    try {
+      const { liquorRecordId, sessionId, scannedBarcode } = req.body;
+      console.log('Adding item directly:', { liquorRecordId, sessionId, scannedBarcode });
+
+      if (!liquorRecordId || !sessionId) {
+        return res.status(400).json({
+          success: false,
+          error: "Missing required fields",
+        });
+      }
+
+      // Get the liquor record
+      const allRecords = await storage.getLiquorRecords();
+      const liquorRecord = allRecords.find(r => r.id === liquorRecordId);
+      
+      if (!liquorRecord) {
+        return res.status(404).json({
+          success: false,
+          error: "Liquor record not found",
+        });
+      }
+
+      // Add to scanned items
+      await storage.addScannedItem({
+        sessionId,
+        liquorRecordId: liquorRecord.id,
+        scannedBarcode: scannedBarcode || liquorRecord.upcCode1 || 'manual-search',
+        scannedAt: new Date().toISOString(),
+        quantity: 1,
+      });
+
+      res.json({
+        success: true,
+        message: "Item added successfully",
+        liquorRecord,
+      });
+    } catch (error) {
+      console.error("Add item error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to add item",
+      });
     }
   });
 

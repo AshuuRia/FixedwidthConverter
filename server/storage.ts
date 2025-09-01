@@ -16,6 +16,7 @@ export interface IStorage {
   addScannedItem(item: InsertScannedItem): Promise<ScannedItem>;
   getScannedItems(sessionId: string): Promise<ScannedItem[]>;
   clearScannedItems(sessionId: string): Promise<void>;
+  deleteScannedItem(itemId: string): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
@@ -125,6 +126,10 @@ export class MemStorage implements IStorage {
       .map(([id, _]) => id);
     
     itemsToDelete.forEach(id => this.scannedItems.delete(id));
+  }
+
+  async deleteScannedItem(itemId: string): Promise<boolean> {
+    return this.scannedItems.delete(itemId);
   }
 }
 

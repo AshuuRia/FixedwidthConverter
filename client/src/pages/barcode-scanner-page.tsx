@@ -51,32 +51,37 @@ export default function BarcodeScannerPage() {
     console.log('Manual search selected:', liquor.brandName);
     
     try {
-      const response = await fetch('/api/scan-barcode', {
+      const response = await fetch('/api/add-item', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          barcode: liquor.upcCode1 || 'manual-search',
+          liquorRecordId: liquor.id,
           sessionId,
+          scannedBarcode: liquor.upcCode1 || 'manual-search',
         }),
       });
 
       const result = await response.json();
       
-      setScanStats(prev => ({
-        totalScans: prev.totalScans + 1,
-        matchedProducts: prev.matchedProducts + 1,
-        lastScanTime: new Date().toLocaleTimeString(),
-      }));
+      if (result.success) {
+        setScanStats(prev => ({
+          totalScans: prev.totalScans + 1,
+          matchedProducts: prev.matchedProducts + 1,
+          lastScanTime: new Date().toLocaleTimeString(),
+        }));
 
-      toast({
-        title: "Product added!",
-        description: `${liquor.brandName} - ${liquor.bottleSize}`,
-      });
+        toast({
+          title: "Product added!",
+          description: `${liquor.brandName} - ${liquor.bottleSize}`,
+        });
 
-      // Refresh the scanned items list
-      setRefreshTrigger(prev => prev + 1);
+        // Refresh the scanned items list
+        setRefreshTrigger(prev => prev + 1);
+      } else {
+        throw new Error(result.error || 'Failed to add item');
+      }
     } catch (error) {
       console.error('Search select error:', error);
       toast({

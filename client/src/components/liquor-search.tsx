@@ -26,6 +26,13 @@ export function LiquorSearch({ onSelect, placeholder = "Search by name, code, or
   // Query for search results
   const { data: searchResults, isLoading } = useQuery<SearchResponse>({
     queryKey: ["/api/search-liquor", searchQuery],
+    queryFn: async () => {
+      const response = await fetch(`/api/search-liquor?query=${encodeURIComponent(searchQuery)}`);
+      if (!response.ok) {
+        throw new Error('Search failed');
+      }
+      return await response.json();
+    },
     enabled: searchQuery.length >= 2,
     staleTime: 30000, // Cache for 30 seconds
   });

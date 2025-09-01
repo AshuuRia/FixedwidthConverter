@@ -63,6 +63,31 @@ export function ScannedItemsList({ sessionId, refreshTrigger }: ScannedItemsList
     }
   };
 
+  const deleteScannedItem = async (itemId: string) => {
+    try {
+      const response = await fetch(`/api/scanned-items/${sessionId}/${itemId}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        // Remove the item from local state
+        setScannedItems(prevItems => prevItems.filter(item => item.id !== itemId));
+        toast({
+          title: "Item deleted",
+          description: "Product removed from your list",
+        });
+      } else {
+        throw new Error('Failed to delete item');
+      }
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Delete failed",
+        description: "Failed to delete item. Please try again.",
+      });
+    }
+  };
+
   const clearScannedItems = async () => {
     try {
       const response = await fetch(`/api/scanned-items/${sessionId}`, {
@@ -259,7 +284,16 @@ export function ScannedItemsList({ sessionId, refreshTrigger }: ScannedItemsList
                       </>
                     )}
                   </div>
-                  <div className="text-right ml-4">
+                  <div className="flex flex-col items-end space-y-2 ml-4">
+                    <Button
+                      onClick={() => deleteScannedItem(item.id)}
+                      variant="outline"
+                      size="sm"
+                      className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                      data-testid={`button-delete-item-${index}`}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
                     <Badge variant="secondary">
                       {new Date(item.scannedAt).toLocaleTimeString()}
                     </Badge>
