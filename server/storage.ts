@@ -17,6 +17,7 @@ export interface IStorage {
   getScannedItems(sessionId: string): Promise<ScannedItem[]>;
   clearScannedItems(sessionId: string): Promise<void>;
   deleteScannedItem(itemId: string): Promise<boolean>;
+  updateScannedItemPrice(itemId: string, newPrice: number): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
@@ -130,6 +131,34 @@ export class MemStorage implements IStorage {
 
   async deleteScannedItem(itemId: string): Promise<boolean> {
     return this.scannedItems.delete(itemId);
+  }
+
+  async updateScannedItemPrice(itemId: string, newPrice: number): Promise<boolean> {
+    const item = this.scannedItems.get(itemId);
+    if (!item) return false;
+    
+    // Update the price by modifying the liquor record for this specific scanned item
+    // Note: This creates a copy of the liquor record with updated price for this session
+    const liquorRecord = item.liquorRecordId ? this.liquorRecords.get(item.liquorRecordId) : null;
+    if (liquorRecord) {
+      // Create a new temporary record with updated price
+      const updatedRecord: LiquorRecord = {
+        ...liquorRecord,
+        shelfPrice: newPrice
+      };
+      // Store it as a new record and update the scanned item reference
+      const newRecordId = randomUUID();
+      this.liquorRecords.set(newRecordId, updatedRecord);
+      
+      // Update the scanned item to reference the new record
+      const updatedItem: ScannedItem = {
+        ...item,
+        liquorRecordId: newRecordId
+      };
+      this.scannedItems.set(itemId, updatedItem);
+      return true;
+    }
+    return false;
   }
 }
 

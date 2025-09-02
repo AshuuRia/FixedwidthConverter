@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Download, Trash2, Package, FileText } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Download, Trash2, Package, FileText, Edit3 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface ScannedItem {
@@ -37,6 +38,8 @@ interface ScannedItemsListProps {
 export function ScannedItemsList({ sessionId, refreshTrigger }: ScannedItemsListProps) {
   const [scannedItems, setScannedItems] = useState<ScannedItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [editPrice, setEditPrice] = useState("");
   const { toast } = useToast();
 
   useEffect(() => {
@@ -108,6 +111,78 @@ export function ScannedItemsList({ sessionId, refreshTrigger }: ScannedItemsList
         variant: "destructive",
         title: "Clear failed",
         description: "Failed to clear scanned items. Please try again.",
+      });
+    }
+  };
+
+  const startEditingPrice = (item: ScannedItem) => {
+    setEditingItemId(item.id);
+    const currentPrice = item.product?.shelfPrice;
+    const priceValue = typeof currentPrice === 'number' ? currentPrice.toFixed(2) : parseFloat(currentPrice || '0').toFixed(2);
+    setEditPrice(priceValue);
+  };
+
+  const cancelEditPrice = () => {
+    setEditingItemId(null);
+    setEditPrice("");
+  };
+
+  const saveEditedPrice = async () => {
+    if (!editingItemId || !editPrice) return;
+
+    const newPrice = parseFloat(editPrice);
+    if (isNaN(newPrice) || newPrice < 0) {
+      toast({
+        variant: "destructive",
+        title: "Invalid price",
+        description: "Please enter a valid price.",
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/update-item-price`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          sessionId,
+          itemId: editingItemId,
+          newPrice,
+        }),
+      });
+
+      if (response.ok) {
+        // Update the local state
+        setScannedItems(prevItems =>
+          prevItems.map(item =>
+            item.id === editingItemId
+              ? {
+                  ...item,
+                  product: item.product ? {
+                    ...item.product,
+                    shelfPrice: newPrice
+                  } : null
+                }
+              : item
+          )
+        );
+
+        toast({
+          title: "Price updated",
+          description: `Price updated to $${newPrice.toFixed(2)}`,
+        });
+
+        cancelEditPrice();
+      } else {
+        throw new Error('Failed to update price');
+      }
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Update failed",
+        description: "Failed to update price. Please try again.",
       });
     }
   };
@@ -376,8 +451,52 @@ export function ScannedItemsList({ sessionId, refreshTrigger }: ScannedItemsList
                           <div>
                             <span className="text-muted-foreground">Vendor:</span> {item.product.vendorName}
                           </div>
-                          <div>
-                            <span className="text-muted-foreground">Price:</span> {formatPrice(item.product.shelfPrice)}
+                          <div className="flex items-center gap-2">
+                            <span className="text-muted-foreground">Price:</span>
+                            {editingItemId === item.id ? (
+                              <div className="flex items-center gap-2">
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  value={editPrice}
+                                  onChange={(e) => setEditPrice(e.target.value)}
+                                  className="w-20 h-6 text-xs"
+                                  data-testid={`input-price-${index}`}
+                                />
+                                <Button
+                                  onClick={saveEditedPrice}
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-6 px-2 text-xs"
+                                  data-testid={`button-save-price-${index}`}
+                                >
+                                  Save
+                                </Button>
+                                <Button
+                                  onClick={cancelEditPrice}
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-6 px-2 text-xs"
+                                  data-testid={`button-cancel-price-${index}`}
+                                >
+                                  Cancel
+                                </Button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-2">
+                                <span>{formatPrice(item.product.shelfPrice)}</span>
+                                <Button
+                                  onClick={() => startEditingPrice(item)}
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-6 w-6 p-0"
+                                  data-testid={`button-edit-price-${index}`}
+                                >
+                                  <Edit3 className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            )}
                           </div>
                           <div>
                             <span className="text-muted-foreground">Proof:</span> {item.product.proof}

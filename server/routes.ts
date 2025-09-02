@@ -624,6 +624,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update scanned item price
+  app.patch("/api/update-item-price", async (req, res) => {
+    try {
+      const { sessionId, itemId, newPrice } = req.body;
+      
+      if (!sessionId || !itemId || newPrice === undefined) {
+        return res.status(400).json({
+          success: false,
+          error: "Session ID, item ID, and new price are required",
+        });
+      }
+
+      const updated = await storage.updateScannedItemPrice(itemId, newPrice);
+      
+      if (updated) {
+        res.json({
+          success: true,
+          message: "Item price updated",
+        });
+      } else {
+        res.status(404).json({
+          success: false,
+          error: "Item not found",
+        });
+      }
+    } catch (error) {
+      console.error("Update item price error:", error);
+      
+      res.status(500).json({
+        success: false,
+        error: "Failed to update item price",
+      });
+    }
+  });
+
   // Generate Excel file
   app.post("/api/generate-excel", async (req, res) => {
     try {
