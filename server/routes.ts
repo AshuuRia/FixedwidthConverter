@@ -707,8 +707,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             record["On Premise"],
             record["Off Premise"],
             record["Shelf Price"],
-            record["UPC Code 1"],
-            record["UPC Code 2"],
+            `'${record["UPC Code 1"]}`, // Format as text to preserve leading zeros
+            `'${record["UPC Code 2"]}`, // Format as text to preserve leading zeros
             record["Effective Date"],
           ])
         ];
@@ -733,8 +733,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             record.onPremisePrice,
             record.offPremisePrice,
             record.shelfPrice,
-            record.upcCode1,
-            record.upcCode2,
+            `'${record.upcCode1}`, // Format as text to preserve leading zeros
+            `'${record.upcCode2}`, // Format as text to preserve leading zeros
             record.effectiveDate,
           ])
         ];
