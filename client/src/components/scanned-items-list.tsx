@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Download, Trash2, Package, Printer } from "lucide-react";
+import { Download, Trash2, Package, Printer, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface ScannedItem {
@@ -208,6 +208,76 @@ export function ScannedItemsList({ sessionId, refreshTrigger }: ScannedItemsList
     }
   };
 
+  const exportForPTouch = async () => {
+    if (scannedItems.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "No items to export",
+        description: "Please scan some items first.",
+      });
+      return;
+    }
+
+    try {
+      console.log('Exporting for P-touch Editor:', scannedItems.length);
+      
+      // Format data specifically for P-touch Editor CSV import
+      // P-touch works best with simple column names and clean data
+      const ptouchData = scannedItems
+        .filter(item => item.product)
+        .map(item => ({
+          "Brand": item.product!.brandName,
+          "Size": item.product!.bottleSize,
+          "Code": item.product!.liquorCode,
+          "Price": `$${typeof item.product!.shelfPrice === 'number' ? item.product!.shelfPrice.toFixed(2) : item.product!.shelfPrice}`,
+          "Barcode": item.scannedBarcode,
+          "ADA": item.product!.adaNumber,
+          "Vendor": item.product!.vendorName,
+          "Proof": item.product!.proof
+        }));
+
+      console.log('P-touch data prepared:', ptouchData.length, 'rows');
+
+      // Convert to CSV format
+      if (ptouchData.length === 0) {
+        toast({
+          variant: "destructive",
+          title: "No valid items",
+          description: "No items with product information found.",
+        });
+        return;
+      }
+
+      const csvHeaders = Object.keys(ptouchData[0]).join(',');
+      const csvRows = ptouchData.map(row => 
+        Object.values(row).map(value => `"${value}"`).join(',')
+      );
+      const csvContent = [csvHeaders, ...csvRows].join('\n');
+
+      // Create and download CSV file
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `ptouch_labels_${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast({
+        title: "P-touch CSV ready!",
+        description: `${ptouchData.length} items exported. Open this CSV in P-touch Editor via File → Database → Connect.`,
+      });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Export failed",
+        description: "Failed to generate P-touch CSV. Please try again.",
+      });
+    }
+  };
+
   const downloadExcel = async () => {
     if (scannedItems.length === 0) {
       toast({
@@ -309,6 +379,16 @@ export function ScannedItemsList({ sessionId, refreshTrigger }: ScannedItemsList
             >
               <Printer className="h-4 w-4 mr-2" />
               Print Labels
+            </Button>
+            <Button
+              onClick={exportForPTouch}
+              disabled={scannedItems.length === 0}
+              size="sm"
+              variant="secondary"
+              data-testid="button-export-ptouch"
+            >
+              <FileText className="h-4 w-4 mr-2" />
+              P-touch CSV
             </Button>
             <Button
               onClick={downloadExcel}
