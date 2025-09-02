@@ -548,8 +548,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get full product details for each scanned item
       const itemsWithDetails = await Promise.all(
         scannedItems.map(async (item) => {
-          const liquorRecords = await storage.getLiquorRecords();
-          const product = liquorRecords.find(r => r.id === item.liquorRecordId);
+          // Use barcode to find product instead of liquorRecordId to handle data reloads
+          const product = await storage.findLiquorByBarcode(item.scannedBarcode);
           return {
             ...item,
             product: product || null,
