@@ -315,6 +315,7 @@ export function ScannedItemsList({ sessionId, refreshTrigger }: ScannedItemsList
           console.log('Processing item for export:', item.product?.brandName);
           return {
             "Liquor Code": item.product!.liquorCode,
+            "Brand Name": item.product!.brandName,
             "ADA Number": item.product!.adaNumber,
             "ADA Name": item.product!.adaName,
             "Vendor Name": item.product!.vendorName,
