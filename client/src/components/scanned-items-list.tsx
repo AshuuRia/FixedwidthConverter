@@ -123,6 +123,7 @@ export function ScannedItemsList({ sessionId, refreshTrigger }: ScannedItemsList
     }
 
     try {
+      console.log('Starting print labels process...');
       const response = await fetch('/api/generate-labels', {
         method: 'POST',
         headers: {
@@ -138,26 +139,71 @@ export function ScannedItemsList({ sessionId, refreshTrigger }: ScannedItemsList
       }
 
       const htmlContent = await response.text();
+      console.log('Received HTML content for printing');
       
-      // Open in new window for printing
-      const printWindow = window.open('', '_blank');
+      // Create a blob URL approach that works better with popup blockers
+      const blob = new Blob([htmlContent], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      
+      // Try to open in a new window, but with better error handling
+      const printWindow = window.open(url, '_blank', 'toolbar=no,location=no,status=no,menubar=no,scrollbars=yes,resizable=yes,width=800,height=600');
+      
       if (printWindow) {
-        printWindow.document.write(htmlContent);
-        printWindow.document.close();
-        printWindow.focus();
+        console.log('Print window opened successfully');
+        
+        // Clean up the blob URL after a delay
+        setTimeout(() => {
+          URL.revokeObjectURL(url);
+        }, 10000);
         
         toast({
           title: "Labels ready to print!",
-          description: `${scannedItems.filter(item => item.product).length} labels opened in new window. Follow the printing instructions.`,
+          description: `${scannedItems.filter(item => item.product).length} labels opened in new window. Use Ctrl+P (or Cmd+P) to print.`,
         });
       } else {
-        throw new Error('Popup blocked. Please allow popups for this site.');
+        console.log('Popup blocked, trying alternative approach...');
+        
+        // Fallback: create a temporary iframe approach
+        const iframe = document.createElement('iframe');
+        iframe.style.position = 'absolute';
+        iframe.style.left = '-9999px';
+        iframe.style.top = '-9999px';
+        iframe.style.width = '1px';
+        iframe.style.height = '1px';
+        
+        document.body.appendChild(iframe);
+        
+        if (iframe.contentWindow) {
+          iframe.contentWindow.document.open();
+          iframe.contentWindow.document.write(htmlContent);
+          iframe.contentWindow.document.close();
+          
+          // Auto-trigger print dialog
+          setTimeout(() => {
+            iframe.contentWindow?.print();
+          }, 100);
+          
+          // Clean up after printing
+          setTimeout(() => {
+            document.body.removeChild(iframe);
+          }, 2000);
+          
+          toast({
+            title: "Labels ready to print!",
+            description: `${scannedItems.filter(item => item.product).length} labels prepared. Print dialog should open automatically.`,
+          });
+        } else {
+          throw new Error('Unable to open print window. Please check your browser settings.');
+        }
+        
+        URL.revokeObjectURL(url);
       }
     } catch (error) {
+      console.error('Print labels error:', error);
       toast({
         variant: "destructive",
         title: "Print failed",
-        description: "Failed to generate labels. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to generate labels. Please try again.",
       });
     }
   };
