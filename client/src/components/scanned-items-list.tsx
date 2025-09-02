@@ -227,7 +227,7 @@ export function ScannedItemsList({ sessionId, refreshTrigger }: ScannedItemsList
             "inclfees": "n",
             "Name": `"${combinedName}"`,
             "Price": formattedPrice,
-            "size": `"${item.product!.liquorCode}"`,
+            "size": `"${item.product!.liquorCode.replace(/^0+/, '') || '0'}"`,
             "ebt": "",
             "byweight": "n",
             "Fee Multiplier": "1",
