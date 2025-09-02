@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Download, Trash2, Package, Printer, FileText } from "lucide-react";
+import { Download, Trash2, Package, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface ScannedItem {
@@ -112,101 +112,6 @@ export function ScannedItemsList({ sessionId, refreshTrigger }: ScannedItemsList
     }
   };
 
-  const printLabels = async () => {
-    if (scannedItems.length === 0) {
-      toast({
-        variant: "destructive",
-        title: "No items to print",
-        description: "Please scan some items first.",
-      });
-      return;
-    }
-
-    try {
-      console.log('Starting print labels process...');
-      const response = await fetch('/api/generate-labels', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          sessionId,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const htmlContent = await response.text();
-      console.log('Received HTML content for printing');
-      
-      // Create a blob URL approach that works better with popup blockers
-      const blob = new Blob([htmlContent], { type: 'text/html' });
-      const url = URL.createObjectURL(blob);
-      
-      // Try to open in a new window, but with better error handling
-      const printWindow = window.open(url, '_blank', 'toolbar=no,location=no,status=no,menubar=no,scrollbars=yes,resizable=yes,width=800,height=600');
-      
-      if (printWindow) {
-        console.log('Print window opened successfully');
-        
-        // Clean up the blob URL after a delay
-        setTimeout(() => {
-          URL.revokeObjectURL(url);
-        }, 10000);
-        
-        toast({
-          title: "Labels ready to print!",
-          description: `${scannedItems.filter(item => item.product).length} labels opened in new window. Use Ctrl+P (or Cmd+P) to print.`,
-        });
-      } else {
-        console.log('Popup blocked, trying alternative approach...');
-        
-        // Fallback: create a temporary iframe approach
-        const iframe = document.createElement('iframe');
-        iframe.style.position = 'absolute';
-        iframe.style.left = '-9999px';
-        iframe.style.top = '-9999px';
-        iframe.style.width = '1px';
-        iframe.style.height = '1px';
-        
-        document.body.appendChild(iframe);
-        
-        if (iframe.contentWindow) {
-          iframe.contentWindow.document.open();
-          iframe.contentWindow.document.write(htmlContent);
-          iframe.contentWindow.document.close();
-          
-          // Auto-trigger print dialog
-          setTimeout(() => {
-            iframe.contentWindow?.print();
-          }, 100);
-          
-          // Clean up after printing
-          setTimeout(() => {
-            document.body.removeChild(iframe);
-          }, 2000);
-          
-          toast({
-            title: "Labels ready to print!",
-            description: `${scannedItems.filter(item => item.product).length} labels prepared. Print dialog should open automatically.`,
-          });
-        } else {
-          throw new Error('Unable to open print window. Please check your browser settings.');
-        }
-        
-        URL.revokeObjectURL(url);
-      }
-    } catch (error) {
-      console.error('Print labels error:', error);
-      toast({
-        variant: "destructive",
-        title: "Print failed",
-        description: error instanceof Error ? error.message : "Failed to generate labels. Please try again.",
-      });
-    }
-  };
 
   const exportForPTouch = async () => {
     if (scannedItems.length === 0) {
@@ -221,20 +126,48 @@ export function ScannedItemsList({ sessionId, refreshTrigger }: ScannedItemsList
     try {
       console.log('Exporting for P-touch Editor:', scannedItems.length);
       
-      // Format data specifically for P-touch Editor CSV import
-      // P-touch works best with simple column names and clean data
+      // Format data exactly like the provided CSV format
       const ptouchData = scannedItems
         .filter(item => item.product)
-        .map(item => ({
-          "Brand": item.product!.brandName,
-          "Size": item.product!.bottleSize,
-          "Code": item.product!.liquorCode,
-          "Price": `$${typeof item.product!.shelfPrice === 'number' ? item.product!.shelfPrice.toFixed(2) : item.product!.shelfPrice}`,
-          "Barcode": item.scannedBarcode,
-          "ADA": item.product!.adaNumber,
-          "Vendor": item.product!.vendorName,
-          "Proof": item.product!.proof
-        }));
+        .map(item => {
+          const price = typeof item.product!.shelfPrice === 'number' ? item.product!.shelfPrice : parseFloat(item.product!.shelfPrice);
+          const cents = Math.round(price * 100);
+          const formattedPrice = `$${price.toFixed(2)}`;
+          const combinedName = `${item.product!.brandName} ${item.product!.bottleSize}`;
+          
+          return {
+            "Upc": `"=""${item.scannedBarcode}"""`,
+            "Department": "Liquor",
+            "qty": "1",
+            "cents": cents.toString(),
+            "incltaxes": "n",
+            "inclfees": "n",
+            "Name": `"${combinedName}"`,
+            "Price": formattedPrice,
+            "size": `"=""${item.product!.liquorCode}"""`,
+            "ebt": "",
+            "byweight": "n",
+            "Fee Multiplier": "1",
+            "cost_qty": "1",
+            "cost_cents": "0",
+            "variable_price": "n",
+            "addstock": "",
+            "setstock": `"=""0"""`,
+            "pack_name": "",
+            "pack_qty": "",
+            "pack_upc": "",
+            "unit_upc": "",
+            "unit_count": "",
+            "is_oneclick": "n",
+            "oc_color": "",
+            "oc_border_color": "",
+            "oc_text_color": "",
+            "oc_fixedpos": "",
+            "oc_page": "",
+            "oc_key": "",
+            "oc_relpos": ""
+          };
+        });
 
       console.log('P-touch data prepared:', ptouchData.length, 'rows');
 
@@ -250,7 +183,7 @@ export function ScannedItemsList({ sessionId, refreshTrigger }: ScannedItemsList
 
       const csvHeaders = Object.keys(ptouchData[0]).join(',');
       const csvRows = ptouchData.map(row => 
-        Object.values(row).map(value => `"${value}"`).join(',')
+        Object.values(row).join(',')
       );
       const csvContent = [csvHeaders, ...csvRows].join('\n');
 
@@ -267,7 +200,7 @@ export function ScannedItemsList({ sessionId, refreshTrigger }: ScannedItemsList
 
       toast({
         title: "P-touch CSV ready!",
-        description: `${ptouchData.length} items exported. Open this CSV in P-touch Editor via File → Database → Connect.`,
+        description: `${ptouchData.length} items exported in POS format for P-touch Editor.`,
       });
     } catch (error) {
       toast({
@@ -371,20 +304,10 @@ export function ScannedItemsList({ sessionId, refreshTrigger }: ScannedItemsList
           </div>
           <div className="flex items-center space-x-2">
             <Button
-              onClick={printLabels}
-              disabled={scannedItems.length === 0}
-              size="sm"
-              variant="default"
-              data-testid="button-print-labels"
-            >
-              <Printer className="h-4 w-4 mr-2" />
-              Print Labels
-            </Button>
-            <Button
               onClick={exportForPTouch}
               disabled={scannedItems.length === 0}
               size="sm"
-              variant="secondary"
+              variant="default"
               data-testid="button-export-ptouch"
             >
               <FileText className="h-4 w-4 mr-2" />
