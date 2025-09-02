@@ -33,11 +33,15 @@ export class MemStorage implements IStorage {
   private users: Map<string, User>;
   private liquorRecords: Map<string, LiquorRecord>;
   private scannedItems: Map<string, ScannedItem>;
+  private sessions: Map<string, Session>;
+  private activeSessionId: string | null;
 
   constructor() {
     this.users = new Map();
     this.liquorRecords = new Map();
     this.scannedItems = new Map();
+    this.sessions = new Map();
+    this.activeSessionId = null;
   }
 
   async getUser(id: string): Promise<User | undefined> {
