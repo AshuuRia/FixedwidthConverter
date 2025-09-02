@@ -133,7 +133,8 @@ export function ScannedItemsList({ sessionId, refreshTrigger }: ScannedItemsList
           const price = typeof item.product!.shelfPrice === 'number' ? item.product!.shelfPrice : parseFloat(item.product!.shelfPrice);
           const cents = Math.round(price * 100);
           const formattedPrice = `$${price.toFixed(2)}`;
-          const combinedName = `${item.product!.brandName} ${item.product!.bottleSize}`;
+          const bottleSize = item.product!.bottleSize.replace(/\s+/g, ''); // Remove all spaces from bottle size
+          const combinedName = `${item.product!.brandName} ${bottleSize}`;
           
           return {
             "Upc": `"${item.scannedBarcode}"`,
