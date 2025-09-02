@@ -136,7 +136,7 @@ export function ScannedItemsList({ sessionId, refreshTrigger }: ScannedItemsList
           const combinedName = `${item.product!.brandName} ${item.product!.bottleSize}`;
           
           return {
-            "Upc": `"=""${item.scannedBarcode}"""`,
+            "Upc": `"${item.scannedBarcode}"`,
             "Department": "Liquor",
             "qty": "1",
             "cents": cents.toString(),
@@ -144,7 +144,7 @@ export function ScannedItemsList({ sessionId, refreshTrigger }: ScannedItemsList
             "inclfees": "n",
             "Name": `"${combinedName}"`,
             "Price": formattedPrice,
-            "size": `"=""${item.product!.liquorCode}"""`,
+            "size": `"${item.product!.liquorCode}"`,
             "ebt": "",
             "byweight": "n",
             "Fee Multiplier": "1",
