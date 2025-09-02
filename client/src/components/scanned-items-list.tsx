@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Download, Trash2, Package } from "lucide-react";
+import { Download, Trash2, Package, Printer } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface ScannedItem {
@@ -112,6 +112,56 @@ export function ScannedItemsList({ sessionId, refreshTrigger }: ScannedItemsList
     }
   };
 
+  const printLabels = async () => {
+    if (scannedItems.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "No items to print",
+        description: "Please scan some items first.",
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/generate-labels', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          sessionId,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const htmlContent = await response.text();
+      
+      // Open in new window for printing
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(htmlContent);
+        printWindow.document.close();
+        printWindow.focus();
+        
+        toast({
+          title: "Labels ready to print!",
+          description: `${scannedItems.filter(item => item.product).length} labels opened in new window. Follow the printing instructions.`,
+        });
+      } else {
+        throw new Error('Popup blocked. Please allow popups for this site.');
+      }
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Print failed",
+        description: "Failed to generate labels. Please try again.",
+      });
+    }
+  };
+
   const downloadExcel = async () => {
     if (scannedItems.length === 0) {
       toast({
@@ -205,9 +255,20 @@ export function ScannedItemsList({ sessionId, refreshTrigger }: ScannedItemsList
           </div>
           <div className="flex items-center space-x-2">
             <Button
+              onClick={printLabels}
+              disabled={scannedItems.length === 0}
+              size="sm"
+              variant="default"
+              data-testid="button-print-labels"
+            >
+              <Printer className="h-4 w-4 mr-2" />
+              Print Labels
+            </Button>
+            <Button
               onClick={downloadExcel}
               disabled={scannedItems.length === 0}
               size="sm"
+              variant="outline"
               data-testid="button-export-scanned"
             >
               <Download className="h-4 w-4 mr-2" />
