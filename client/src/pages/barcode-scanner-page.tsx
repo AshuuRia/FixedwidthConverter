@@ -124,6 +124,23 @@ export default function BarcodeScannerPage() {
         // Refresh the scanned items list
         setRefreshTrigger(prev => prev + 1);
       } else {
+        // Play error sound for failed scan
+        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        // Create error sound: two quick beeps
+        oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+        oscillator.frequency.setValueAtTime(600, audioContext.currentTime + 0.1);
+        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+        
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.2);
+        
         toast({
           variant: "destructive", 
           title: "Product not found",

@@ -40,6 +40,7 @@ export function ScannedItemsList({ sessionId, refreshTrigger }: ScannedItemsList
   const [isLoading, setIsLoading] = useState(false);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editPrice, setEditPrice] = useState("");
+  const [originalPrices, setOriginalPrices] = useState<Map<string, number>>(new Map());
   const { toast } = useToast();
 
   useEffect(() => {
@@ -120,6 +121,12 @@ export function ScannedItemsList({ sessionId, refreshTrigger }: ScannedItemsList
     const currentPrice = item.product?.shelfPrice;
     const priceValue = typeof currentPrice === 'number' ? currentPrice.toFixed(2) : parseFloat(currentPrice || '0').toFixed(2);
     setEditPrice(priceValue);
+    
+    // Store original price if not already stored
+    if (!originalPrices.has(item.id) && item.product?.shelfPrice) {
+      const originalPrice = typeof item.product.shelfPrice === 'number' ? item.product.shelfPrice : parseFloat(item.product.shelfPrice || '0');
+      setOriginalPrices(prev => new Map(prev).set(item.id, originalPrice));
+    }
   };
 
   const cancelEditPrice = () => {
@@ -485,7 +492,14 @@ export function ScannedItemsList({ sessionId, refreshTrigger }: ScannedItemsList
                               </div>
                             ) : (
                               <div className="flex items-center gap-2">
-                                <span>{formatPrice(item.product.shelfPrice)}</span>
+                                <div className="flex flex-col">
+                                  <span>{formatPrice(item.product.shelfPrice)}</span>
+                                  {originalPrices.has(item.id) && (
+                                    <span className="text-xs text-muted-foreground line-through">
+                                      Original: {formatPrice(originalPrices.get(item.id)!)}
+                                    </span>
+                                  )}
+                                </div>
                                 <Button
                                   onClick={() => startEditingPrice(item)}
                                   size="sm"
