@@ -1017,6 +1017,101 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Session management routes
+  
+  // Get all sessions  
+  app.get("/api/sessions", async (req, res) => {
+    try {
+      const sessions = await storage.getSessions();
+      res.json({ success: true, sessions });
+    } catch (error) {
+      console.error("Get sessions error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to get sessions",
+      });
+    }
+  });
+
+  // Create a new session
+  app.post("/api/sessions", async (req, res) => {
+    try {
+      const { name } = req.body;
+      if (!name) {
+        return res.status(400).json({
+          success: false,
+          error: "Session name is required",
+        });
+      }
+
+      const session = await storage.createSession({ 
+        name,
+        itemCount: 0,
+        isActive: 1 
+      });
+      
+      res.json({ success: true, session });
+    } catch (error) {
+      console.error("Create session error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to create session",
+      });
+    }
+  });
+
+  // Get active session
+  app.get("/api/sessions/active", async (req, res) => {
+    try {
+      const activeSession = await storage.getActiveSession();
+      res.json({ success: true, session: activeSession });
+    } catch (error) {
+      console.error("Get active session error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to get active session",
+      });
+    }
+  });
+
+  // Set active session
+  app.post("/api/sessions/:sessionId/activate", async (req, res) => {
+    try {
+      const { sessionId } = req.params;
+      await storage.setActiveSession(sessionId);
+      const session = await storage.getSession(sessionId);
+      res.json({ success: true, session });
+    } catch (error) {
+      console.error("Set active session error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to set active session",
+      });
+    }
+  });
+
+  // Delete a session
+  app.delete("/api/sessions/:sessionId", async (req, res) => {
+    try {
+      const { sessionId } = req.params;
+      const deleted = await storage.deleteSession(sessionId);
+      if (deleted) {
+        res.json({ success: true, message: "Session deleted" });
+      } else {
+        res.status(404).json({
+          success: false,
+          error: "Session not found",
+        });
+      }
+    } catch (error) {
+      console.error("Delete session error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to delete session",
+      });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

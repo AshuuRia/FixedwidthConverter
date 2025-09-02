@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type LiquorRecord, type InsertLiquorRecord, type ScannedItem, type InsertScannedItem } from "@shared/schema";
+import { type User, type InsertUser, type LiquorRecord, type InsertLiquorRecord, type ScannedItem, type InsertScannedItem, type Session, type InsertSession } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 export interface IStorage {
@@ -18,6 +18,15 @@ export interface IStorage {
   clearScannedItems(sessionId: string): Promise<void>;
   deleteScannedItem(itemId: string): Promise<boolean>;
   updateScannedItemPrice(itemId: string, newPrice: number): Promise<boolean>;
+  
+  // Session methods
+  createSession(session: InsertSession): Promise<Session>;
+  getSession(sessionId: string): Promise<Session | undefined>;
+  getSessions(): Promise<Session[]>;
+  updateSessionItemCount(sessionId: string, count: number): Promise<void>;
+  deleteSession(sessionId: string): Promise<boolean>;
+  getActiveSession(): Promise<Session | undefined>;
+  setActiveSession(sessionId: string): Promise<void>;
 }
 
 export class MemStorage implements IStorage {
@@ -159,6 +168,142 @@ export class MemStorage implements IStorage {
       return true;
     }
     return false;
+  }
+
+  // Session methods
+  async createSession(insertSession: InsertSession): Promise<Session> {
+    const id = randomUUID();
+    const session: Session = {
+      id,
+      name: insertSession.name,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      itemCount: insertSession.itemCount || 0,
+      isActive: insertSession.isActive || 1,
+    };
+    this.sessions.set(id, session);
+    this.activeSessionId = id;
+    return session;
+  }
+
+  async getSession(sessionId: string): Promise<Session | undefined> {
+    return this.sessions.get(sessionId);
+  }
+
+  async getSessions(): Promise<Session[]> {
+    return Array.from(this.sessions.values()).sort((a, b) => 
+      new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+    );
+  }
+
+  async updateSessionItemCount(sessionId: string, count: number): Promise<void> {
+    const session = this.sessions.get(sessionId);
+    if (session) {
+      session.itemCount = count;
+      session.updatedAt = new Date();
+    }
+  }
+
+  async deleteSession(sessionId: string): Promise<boolean> {
+    const deleted = this.sessions.delete(sessionId);
+    if (deleted && this.activeSessionId === sessionId) {
+      this.activeSessionId = null;
+    }
+    // Also clear scanned items for this session
+    await this.clearScannedItems(sessionId);
+    return deleted;
+  }
+
+  async getActiveSession(): Promise<Session | undefined> {
+    if (this.activeSessionId) {
+      return this.sessions.get(this.activeSessionId);
+    }
+    return undefined;
+  }
+
+  async setActiveSession(sessionId: string): Promise<void> {
+    if (this.sessions.has(sessionId)) {
+      this.activeSessionId = sessionId;
+    }
+  }
+}
+
+// Import database storage when needed
+class DatabaseStorage implements IStorage {
+  async getUser(id: string): Promise<User | undefined> {
+    throw new Error("Not implemented - using memory storage for now");
+  }
+  
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    throw new Error("Not implemented - using memory storage for now");
+  }
+  
+  async createUser(user: InsertUser): Promise<User> {
+    throw new Error("Not implemented - using memory storage for now");
+  }
+  
+  async createLiquorRecord(record: InsertLiquorRecord): Promise<LiquorRecord> {
+    throw new Error("Not implemented - using memory storage for now");
+  }
+  
+  async getLiquorRecords(): Promise<LiquorRecord[]> {
+    throw new Error("Not implemented - using memory storage for now");
+  }
+  
+  async clearLiquorRecords(): Promise<void> {
+    throw new Error("Not implemented - using memory storage for now");
+  }
+  
+  async findLiquorByBarcode(barcode: string): Promise<LiquorRecord | undefined> {
+    throw new Error("Not implemented - using memory storage for now");
+  }
+  
+  async addScannedItem(item: InsertScannedItem): Promise<ScannedItem> {
+    throw new Error("Not implemented - using memory storage for now");
+  }
+  
+  async getScannedItems(sessionId: string): Promise<ScannedItem[]> {
+    throw new Error("Not implemented - using memory storage for now");
+  }
+  
+  async clearScannedItems(sessionId: string): Promise<void> {
+    throw new Error("Not implemented - using memory storage for now");
+  }
+  
+  async deleteScannedItem(itemId: string): Promise<boolean> {
+    throw new Error("Not implemented - using memory storage for now");
+  }
+  
+  async updateScannedItemPrice(itemId: string, newPrice: number): Promise<boolean> {
+    throw new Error("Not implemented - using memory storage for now");
+  }
+  
+  async createSession(session: InsertSession): Promise<Session> {
+    throw new Error("Not implemented - using memory storage for now");
+  }
+  
+  async getSession(sessionId: string): Promise<Session | undefined> {
+    throw new Error("Not implemented - using memory storage for now");
+  }
+  
+  async getSessions(): Promise<Session[]> {
+    throw new Error("Not implemented - using memory storage for now");
+  }
+  
+  async updateSessionItemCount(sessionId: string, count: number): Promise<void> {
+    throw new Error("Not implemented - using memory storage for now");
+  }
+  
+  async deleteSession(sessionId: string): Promise<boolean> {
+    throw new Error("Not implemented - using memory storage for now");
+  }
+  
+  async getActiveSession(): Promise<Session | undefined> {
+    throw new Error("Not implemented - using memory storage for now");
+  }
+  
+  async setActiveSession(sessionId: string): Promise<void> {
+    throw new Error("Not implemented - using memory storage for now");
   }
 }
 

@@ -1,16 +1,19 @@
 import { useState, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { BarcodeScanner } from "@/components/barcode-scanner";
 import { ScannedItemsList } from "@/components/scanned-items-list";
 import { LiquorSearch } from "@/components/liquor-search";
+import { SessionSidebar } from "@/components/session-sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Scan, AlertCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { FileText, Scan, AlertCircle, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import type { LiquorRecord } from "@shared/schema";
+import type { LiquorRecord, Session } from "@shared/schema";
 
 export default function BarcodeScannerPage() {
-  const [sessionId] = useState(() => `session_${Date.now()}`);
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const [isScannerActive, setIsScannerActive] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [hasLiquorData, setHasLiquorData] = useState(false);
@@ -20,19 +23,52 @@ export default function BarcodeScannerPage() {
     lastScanTime: null as string | null,
   });
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  // Get active session on load
+  const { data: activeSessionData } = useQuery({
+    queryKey: ['/api/sessions/active'],
+  });
+
+  const activeSession = (activeSessionData as any)?.session;
 
   useEffect(() => {
     // Check if liquor data has been loaded
     checkLiquorData();
-  }, []);
+    
+    // If there's an active session, use it
+    if (activeSession) {
+      setSessionId(activeSession.id);
+    } else {
+      // Create a default session if none exists
+      createDefaultSession();
+    }
+  }, [activeSession]);
+
+  const createDefaultSession = async () => {
+    try {
+      const now = new Date();
+      const defaultName = `Scan Session ${now.toLocaleDateString()}`;
+      
+      const response = await fetch('/api/sessions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: defaultName }),
+      });
+      
+      const result = await response.json();
+      if (result.success) {
+        setSessionId(result.session.id);
+        queryClient.invalidateQueries({ queryKey: ['/api/sessions'] });
+      }
+    } catch (error) {
+      console.error('Failed to create default session:', error);
+    }
+  };
 
   const checkLiquorData = async () => {
     try {
-      // Check if data exists by getting scanned items (this doesn't modify data)
-      const response = await fetch(`/api/scanned-items/${sessionId}`);
-      const result = await response.json();
-      
-      // If this works and we can make requests, check if we have liquor records
+      // Check if we have liquor records by doing a test scan
       const scanResponse = await fetch('/api/scan-barcode', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -58,7 +94,7 @@ export default function BarcodeScannerPage() {
         },
         body: JSON.stringify({
           liquorRecordId: liquor.id,
-          sessionId,
+          sessionId: sessionId || 'default',
           scannedBarcode: liquor.upcCode1 || 'manual-search',
         }),
       });
@@ -177,6 +213,13 @@ export default function BarcodeScannerPage() {
               </div>
             </div>
             <div className="flex items-center space-x-4">
+              <SessionSidebar 
+                onSessionChange={(newSessionId) => {
+                  setSessionId(newSessionId);
+                  setRefreshTrigger(prev => prev + 1);
+                }}
+                currentSessionId={sessionId}
+              />
               <a 
                 href="/" 
                 className="bg-secondary text-secondary-foreground px-4 py-2 rounded-md text-sm font-medium hover:bg-secondary/90 transition-colors"
@@ -295,10 +338,12 @@ export default function BarcodeScannerPage() {
 
           {/* Scanned Items Section */}
           <div>
-            <ScannedItemsList
-              sessionId={sessionId}
-              refreshTrigger={refreshTrigger}
-            />
+            {sessionId && (
+              <ScannedItemsList
+                sessionId={sessionId}
+                refreshTrigger={refreshTrigger}
+              />
+            )}
           </div>
         </div>
 
