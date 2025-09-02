@@ -219,7 +219,7 @@ export function ScannedItemsList({ sessionId, refreshTrigger }: ScannedItemsList
           const combinedName = `${item.product!.brandName} ${bottleSize}`;
           
           return {
-            "Upc": `"${item.scannedBarcode}"`,
+            "Upc": `"'${item.scannedBarcode}"`,
             "Department": "Liquor",
             "qty": "1",
             "cents": cents.toString(),
