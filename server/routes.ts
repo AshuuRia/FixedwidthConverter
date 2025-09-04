@@ -701,17 +701,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let mappingsAdded = 0;
       let skippedRows = 0;
       
-      // Skip header row if it looks like headers
-      const startRow = (worksheetData[0] && (
-        worksheetData[0][0]?.toLowerCase().includes('upc') || 
-        worksheetData[0][1]?.toLowerCase().includes('name')
-      )) ? 1 : 0;
+      if (worksheetData.length === 0) {
+        return res.status(400).json({ error: "File appears to be empty" });
+      }
+      
+      // Auto-detect column indices for UPC and Name
+      let upcColumnIndex = -1;
+      let nameColumnIndex = -1;
+      let startRow = 0;
+      
+      // Check if first row contains headers
+      const firstRow = worksheetData[0];
+      const hasHeaders = firstRow.some(cell => {
+        const cellStr = String(cell || '').toLowerCase();
+        return cellStr.includes('upc') || cellStr.includes('name') || cellStr.includes('description') || cellStr.includes('brand');
+      });
+      
+      if (hasHeaders) {
+        startRow = 1;
+        
+        // Find UPC column
+        for (let i = 0; i < firstRow.length; i++) {
+          const header = String(firstRow[i] || '').toLowerCase().trim();
+          if (header.includes('upc') || header.includes('barcode') || header.includes('code')) {
+            upcColumnIndex = i;
+            break;
+          }
+        }
+        
+        // Find Name column
+        for (let i = 0; i < firstRow.length; i++) {
+          const header = String(firstRow[i] || '').toLowerCase().trim();
+          if (header.includes('name') || header.includes('description') || header.includes('brand') || header.includes('product')) {
+            nameColumnIndex = i;
+            break;
+          }
+        }
+        
+        console.log('Column detection:', {
+          upcColumn: firstRow[upcColumnIndex] || 'not found',
+          nameColumn: firstRow[nameColumnIndex] || 'not found',
+          upcIndex: upcColumnIndex,
+          nameIndex: nameColumnIndex
+        });
+      }
+      
+      // Fallback to first two columns if headers not found or detection failed
+      if (upcColumnIndex === -1 || nameColumnIndex === -1) {
+        console.log('Using fallback: first two columns');
+        upcColumnIndex = 0;
+        nameColumnIndex = 1;
+        startRow = hasHeaders ? 1 : 0;
+      }
 
       for (let i = startRow; i < worksheetData.length; i++) {
         const row = worksheetData[i];
-        if (row && row.length >= 2 && row[0] && row[1]) {
-          const upcCode = String(row[0]).trim();
-          const customName = String(row[1]).trim();
+        if (row && row.length > Math.max(upcColumnIndex, nameColumnIndex)) {
+          const upcCode = String(row[upcColumnIndex] || '').trim();
+          const customName = String(row[nameColumnIndex] || '').trim();
           
           if (upcCode && customName) {
             await storage.addCustomNameMapping({

@@ -379,10 +379,6 @@ export function ScannedItemsList({ sessionId, refreshTrigger }: ScannedItemsList
           const finalName = customName || item.product!.brandName;
           const combinedName = `${finalName} ${bottleSize}`;
           
-          // Debug logging
-          if (customName) {
-            console.log(`Using custom name for ${item.scannedBarcode}: ${customName} -> ${combinedName}`);
-          }
           
           return {
             "Upc": `"${item.scannedBarcode}"`,
@@ -445,10 +441,6 @@ export function ScannedItemsList({ sessionId, refreshTrigger }: ScannedItemsList
       );
       const csvContent = [csvHeaders, ...csvRows].join('\n');
       
-      // Debug: Log first few lines of CSV
-      console.log('CSV Headers:', csvHeaders);
-      console.log('First CSV row:', csvRows[0]);
-      console.log('Sample data object:', JSON.stringify(csvData[0], null, 2));
 
       // Create and download CSV file
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
