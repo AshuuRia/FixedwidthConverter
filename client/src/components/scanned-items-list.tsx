@@ -624,17 +624,17 @@ export function ScannedItemsList({ sessionId, refreshTrigger }: ScannedItemsList
             {scannedItems.map((item, index) => (
               <div
                 key={item.id}
-                className="border border-border rounded-lg p-4 bg-card"
+                className="border border-border rounded-lg p-4 bg-card overflow-hidden"
                 data-testid={`scanned-item-${index}`}
               >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
                     {item.product ? (
                       <>
                         <h4 className="font-semibold text-card-foreground">
                           {item.product.brandName}
                         </h4>
-                        <div className="grid grid-cols-2 gap-2 mt-2 text-sm">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2 text-sm">
                           <div>
                             <span className="text-muted-foreground">Liquor Code:</span> {item.product.liquorCode}
                           </div>
@@ -644,8 +644,9 @@ export function ScannedItemsList({ sessionId, refreshTrigger }: ScannedItemsList
                           <div>
                             <span className="text-muted-foreground">Size:</span> {item.product.bottleSize}
                           </div>
-                          <div>
-                            <span className="text-muted-foreground">Vendor:</span> {item.product.vendorName}
+                          <div className="truncate">
+                            <span className="text-muted-foreground">Vendor:</span> 
+                            <span className="ml-1" title={item.product.vendorName}>{item.product.vendorName}</span>
                           </div>
                           <div className="flex items-center gap-2">
                             <span className="text-muted-foreground">Price:</span>
@@ -717,7 +718,7 @@ export function ScannedItemsList({ sessionId, refreshTrigger }: ScannedItemsList
                       </>
                     )}
                   </div>
-                  <div className="flex flex-col items-end space-y-2 ml-4">
+                  <div className="flex flex-col items-end space-y-2 flex-shrink-0">
                     <Button
                       onClick={() => deleteScannedItem(item.id)}
                       variant="outline"
