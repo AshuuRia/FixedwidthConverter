@@ -375,8 +375,15 @@ export function ScannedItemsList({ sessionId, refreshTrigger }: ScannedItemsList
             customName = tryFindCustomName(item.product!.upcCode2);
           }
           
-          // Use custom name if found, otherwise use original brand name
-          const finalName = customName || item.product!.brandName;
+          // Use custom name if found, otherwise use original brand name + size
+          let finalName;
+          if (customName) {
+            // Custom name found - use it as-is (no size combined)
+            finalName = customName;
+          } else {
+            // No custom name - combine brand name with bottle size
+            finalName = `${item.product!.brandName} ${bottleSize}`;
+          }
           
           return {
             "Upc": `"${item.scannedBarcode}"`,
