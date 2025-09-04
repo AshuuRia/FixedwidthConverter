@@ -377,8 +377,6 @@ export function ScannedItemsList({ sessionId, refreshTrigger }: ScannedItemsList
           
           // Use custom name if found, otherwise use original brand name
           const finalName = customName || item.product!.brandName;
-          const combinedName = `${finalName} ${bottleSize}`;
-          
           
           return {
             "Upc": `"${item.scannedBarcode}"`,
@@ -387,7 +385,7 @@ export function ScannedItemsList({ sessionId, refreshTrigger }: ScannedItemsList
             "cents": cents.toString(),
             "incltaxes": "n",
             "inclfees": "n",
-            "Name": `"${combinedName}"`,
+            "Name": `"${finalName}"`,
             "Price": formattedPrice,
             "size": `"${item.product!.liquorCode.replace(/^0+/, '') || '0'}"`,
             "ebt": "",
