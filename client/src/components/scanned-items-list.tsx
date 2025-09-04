@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Download, Trash2, Package, FileText, Edit3 } from "lucide-react";
+import { Download, Trash2, Package, FileText, Edit3, Upload } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface ScannedItem {
@@ -294,6 +294,150 @@ export function ScannedItemsList({ sessionId, refreshTrigger }: ScannedItemsList
     }
   };
 
+  const exportForPTouchWithCustomNames = async () => {
+    if (scannedItems.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "No items to export",
+        description: "Please scan some items first.",
+      });
+      return;
+    }
+
+    try {
+      console.log('Exporting P-touch with custom names:', scannedItems.length);
+      
+      // Get custom name mappings first
+      const mappingsResponse = await fetch('/api/custom-names');
+      let customMappings: Record<string, string> = {};
+      
+      if (mappingsResponse.ok) {
+        const mappingsResult = await mappingsResponse.json();
+        // Create a lookup map from UPC to custom name
+        for (const mapping of mappingsResult.mappings || []) {
+          // Normalize UPC codes for matching
+          const normalizedUpc = mapping.upcCode.replace(/^0+/, '') || '0';
+          customMappings[mapping.upcCode] = mapping.customName;
+          customMappings[normalizedUpc] = mapping.customName;
+        }
+      }
+      
+      // Format data exactly like the original P-touch format but with custom names
+      const ptouchData = scannedItems
+        .filter(item => item.product)
+        .map(item => {
+          const price = typeof item.product!.shelfPrice === 'number' ? item.product!.shelfPrice : parseFloat(item.product!.shelfPrice);
+          const cents = Math.round(price * 100);
+          const formattedPrice = `$${price.toFixed(2)}`;
+          const bottleSize = item.product!.bottleSize.replace(/\s+/g, ''); // Remove all spaces from bottle size
+          
+          // Try to find custom name by matching UPC codes
+          let customName = null;
+          
+          // Check scanned barcode first
+          if (item.scannedBarcode && customMappings[item.scannedBarcode]) {
+            customName = customMappings[item.scannedBarcode];
+          }
+          
+          // Check product UPC codes if no match found
+          if (!customName && item.product!.upcCode1 && customMappings[item.product!.upcCode1]) {
+            customName = customMappings[item.product!.upcCode1];
+          }
+          
+          if (!customName && item.product!.upcCode2 && customMappings[item.product!.upcCode2]) {
+            customName = customMappings[item.product!.upcCode2];
+          }
+          
+          // Use custom name if found, otherwise use original brand name
+          const finalName = customName || item.product!.brandName;
+          const combinedName = `${finalName} ${bottleSize}`;
+          
+          return {
+            "Upc": `"${item.scannedBarcode}"`,
+            "Department": "Liquor",
+            "qty": "1",
+            "cents": cents.toString(),
+            "incltaxes": "n",
+            "inclfees": "n",
+            "Name": `"${combinedName}"`,
+            "Price": formattedPrice,
+            "size": `"${item.product!.liquorCode.replace(/^0+/, '') || '0'}"`,
+            "ebt": "",
+            "byweight": "n",
+            "Fee Multiplier": "1",
+            "cost_qty": "1",
+            "cost_cents": "0",
+            "variable_price": "n",
+            "addstock": "",
+            "setstock": `"=""0"""`,
+            "pack_name": "",
+            "pack_qty": "",
+            "pack_upc": "",
+            "unit_upc": "",
+            "unit_count": "",
+            "is_oneclick": "n",
+            "oc_color": "",
+            "oc_border_color": "",
+            "oc_text_color": "",
+            "oc_fixedpos": "",
+            "oc_page": "",
+            "oc_key": "",
+            "oc_relpos": "",
+            "CustomOverride": !!customName
+          };
+        });
+
+      console.log('P-touch custom data prepared:', ptouchData.length, 'rows');
+      const customCount = ptouchData.filter(item => item.CustomOverride).length;
+      console.log('Items with custom names:', customCount);
+
+      // Convert to CSV format (exclude the CustomOverride field from output)
+      if (ptouchData.length === 0) {
+        toast({
+          variant: "destructive",
+          title: "No valid items",
+          description: "No items with product information found.",
+        });
+        return;
+      }
+
+      // Remove the CustomOverride field for CSV output
+      const csvData = ptouchData.map(item => {
+        const { CustomOverride, ...csvItem } = item;
+        return csvItem;
+      });
+
+      const csvHeaders = Object.keys(csvData[0]).join(',');
+      const csvRows = csvData.map(row => 
+        Object.values(row).join(',')
+      );
+      const csvContent = [csvHeaders, ...csvRows].join('\n');
+
+      // Create and download CSV file
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `ptouch_custom_${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast({
+        title: "P-touch CSV with custom names ready!",
+        description: `${ptouchData.length} items exported (${customCount} custom names used) in POS format for P-touch Editor.`,
+      });
+    } catch (error) {
+      console.error('P-touch custom export error:', error);
+      toast({
+        variant: "destructive",
+        title: "Export failed",
+        description: "Failed to generate P-touch CSV with custom names. Please try again.",
+      });
+    }
+  };
+
   const downloadExcel = async () => {
     if (scannedItems.length === 0) {
       toast({
@@ -396,6 +540,16 @@ export function ScannedItemsList({ sessionId, refreshTrigger }: ScannedItemsList
             >
               <FileText className="h-4 w-4 mr-2" />
               P-touch CSV
+            </Button>
+            <Button
+              onClick={exportForPTouchWithCustomNames}
+              disabled={scannedItems.length === 0}
+              size="sm"
+              variant="outline"
+              data-testid="button-export-ptouch-custom"
+            >
+              <FileText className="h-4 w-4 mr-2" />
+              P-touch CSV (Custom Names)
             </Button>
             <Button
               onClick={downloadExcel}
@@ -551,6 +705,171 @@ export function ScannedItemsList({ sessionId, refreshTrigger }: ScannedItemsList
             ))}
           </div>
         )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// Custom Name Mapping Upload Component
+export function CustomNameMappingUpload() {
+  const [isUploading, setIsUploading] = useState(false);
+  const [mappingFile, setMappingFile] = useState<File | null>(null);
+  const [mappingCount, setMappingCount] = useState<number>(0);
+  const { toast } = useToast();
+
+  // Load existing mapping count on mount
+  useEffect(() => {
+    loadMappingCount();
+  }, []);
+
+  const loadMappingCount = async () => {
+    try {
+      const response = await fetch('/api/custom-names');
+      if (response.ok) {
+        const result = await response.json();
+        setMappingCount(result.count || 0);
+      }
+    } catch (error) {
+      console.error('Failed to load mapping count:', error);
+    }
+  };
+
+  const uploadCustomNameMapping = async () => {
+    if (!mappingFile) return;
+
+    try {
+      setIsUploading(true);
+
+      const formData = new FormData();
+      formData.append('file', mappingFile);
+
+      const response = await fetch('/api/upload-custom-names', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        setMappingCount(result.mappingsUploaded || 0);
+        toast({
+          title: "Custom names uploaded successfully",
+          description: `${result.mappingsUploaded} name mappings added`,
+        });
+        setMappingFile(null);
+      } else {
+        const error = await response.json();
+        throw new Error(error.error || 'Upload failed');
+      }
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast({
+        title: "Upload failed", 
+        description: error instanceof Error ? error.message : "Failed to upload custom names",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const clearCustomNames = async () => {
+    try {
+      const response = await fetch('/api/clear-custom-names', {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        setMappingCount(0);
+        toast({
+          title: "Custom names cleared",
+          description: "All custom name mappings have been removed",
+        });
+      } else {
+        throw new Error('Failed to clear custom names');
+      }
+    } catch (error) {
+      console.error('Clear error:', error);
+      toast({
+        title: "Clear failed",
+        description: "Failed to clear custom names",
+        variant: "destructive",
+      });
+    }
+  };
+
+  return (
+    <Card className="mt-6">
+      <CardHeader>
+        <CardTitle className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <Upload className="h-5 w-5" />
+            <span>Custom Name Overrides</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Button
+              onClick={clearCustomNames}
+              disabled={mappingCount === 0}
+              size="sm"
+              variant="outline"
+              data-testid="button-clear-custom-names"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Clear All ({mappingCount})
+            </Button>
+          </div>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          <div className="text-sm text-muted-foreground">
+            <p>Upload a CSV or Excel file with custom product names. The file should have two columns:</p>
+            <ul className="list-disc list-inside mt-2 space-y-1">
+              <li><strong>UPC Code:</strong> The barcode/UPC of the product</li>
+              <li><strong>Custom Name:</strong> Your preferred name for the product</li>
+            </ul>
+            <p className="mt-2">
+              These custom names will be used in the P-touch CSV export when UPC codes match.
+            </p>
+          </div>
+          
+          <div className="flex items-center space-x-4">
+            <div className="flex-1">
+              <Input
+                type="file"
+                accept=".csv,.xlsx,.xls"
+                onChange={(e) => setMappingFile(e.target.files?.[0] || null)}
+                disabled={isUploading}
+                data-testid="input-custom-names-file"
+              />
+            </div>
+            <Button
+              onClick={uploadCustomNameMapping}
+              disabled={!mappingFile || isUploading}
+              data-testid="button-upload-custom-names"
+            >
+              {isUploading ? (
+                <>
+                  <div className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full mr-2" />
+                  Uploading...
+                </>
+              ) : (
+                <>
+                  <Upload className="h-4 w-4 mr-2" />
+                  Upload
+                </>
+              )}
+            </Button>
+          </div>
+
+          {mappingCount > 0 && (
+            <div className="bg-muted p-3 rounded-lg">
+              <p className="text-sm">
+                <strong>{mappingCount}</strong> custom name mappings loaded. 
+                Use the "P-touch CSV (Custom Names)" button to export with your custom names.
+              </p>
+            </div>
+          )}
+        </div>
       </CardContent>
     </Card>
   );

@@ -131,3 +131,19 @@ export const insertSessionSchema = createInsertSchema(sessions).omit({
 
 export type InsertSession = z.infer<typeof insertSessionSchema>;
 export type Session = typeof sessions.$inferSelect;
+
+// Custom name mappings table for P-touch CSV overrides
+export const customNameMappings = pgTable("custom_name_mappings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  upcCode: text("upc_code").notNull(),
+  customName: text("custom_name").notNull(),
+  uploadedAt: timestamp("uploaded_at").defaultNow().notNull(),
+});
+
+export const insertCustomNameMappingSchema = createInsertSchema(customNameMappings).omit({
+  id: true,
+  uploadedAt: true,
+});
+
+export type InsertCustomNameMapping = z.infer<typeof insertCustomNameMappingSchema>;
+export type CustomNameMapping = typeof customNameMappings.$inferSelect;

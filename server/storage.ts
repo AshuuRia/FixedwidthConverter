@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type LiquorRecord, type InsertLiquorRecord, type ScannedItem, type InsertScannedItem, type Session, type InsertSession } from "@shared/schema";
+import { type User, type InsertUser, type LiquorRecord, type InsertLiquorRecord, type ScannedItem, type InsertScannedItem, type Session, type InsertSession, type CustomNameMapping, type InsertCustomNameMapping } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 export interface IStorage {
@@ -27,6 +27,12 @@ export interface IStorage {
   deleteSession(sessionId: string): Promise<boolean>;
   getActiveSession(): Promise<Session | undefined>;
   setActiveSession(sessionId: string): Promise<void>;
+  
+  // Custom name mapping methods
+  addCustomNameMapping(mapping: InsertCustomNameMapping): Promise<CustomNameMapping>;
+  getCustomNameMappings(): Promise<CustomNameMapping[]>;
+  clearCustomNameMappings(): Promise<void>;
+  getCustomNameByUpc(upcCode: string): Promise<string | undefined>;
 }
 
 export class MemStorage implements IStorage {
@@ -34,6 +40,7 @@ export class MemStorage implements IStorage {
   private liquorRecords: Map<string, LiquorRecord>;
   private scannedItems: Map<string, ScannedItem>;
   private sessions: Map<string, Session>;
+  private customNameMappings: Map<string, CustomNameMapping>;
   private activeSessionId: string | null;
 
   constructor() {
@@ -41,6 +48,7 @@ export class MemStorage implements IStorage {
     this.liquorRecords = new Map();
     this.scannedItems = new Map();
     this.sessions = new Map();
+    this.customNameMappings = new Map();
     this.activeSessionId = null;
   }
 
@@ -230,6 +238,47 @@ export class MemStorage implements IStorage {
       this.activeSessionId = sessionId;
     }
   }
+
+  // Custom name mapping methods
+  async addCustomNameMapping(insertMapping: InsertCustomNameMapping): Promise<CustomNameMapping> {
+    const id = randomUUID();
+    const mapping: CustomNameMapping = {
+      id,
+      upcCode: insertMapping.upcCode,
+      customName: insertMapping.customName,
+      uploadedAt: new Date(),
+    };
+    this.customNameMappings.set(id, mapping);
+    return mapping;
+  }
+
+  async getCustomNameMappings(): Promise<CustomNameMapping[]> {
+    return Array.from(this.customNameMappings.values());
+  }
+
+  async clearCustomNameMappings(): Promise<void> {
+    this.customNameMappings.clear();
+  }
+
+  async getCustomNameByUpc(upcCode: string): Promise<string | undefined> {
+    // Helper function to normalize UPC codes by removing leading zeros
+    const normalizeUpc = (upc: string): string => {
+      return upc.replace(/^0+/, '') || '0';
+    };
+
+    const normalizedInputUpc = normalizeUpc(upcCode);
+    
+    for (const mapping of Array.from(this.customNameMappings.values())) {
+      const normalizedMappingUpc = normalizeUpc(mapping.upcCode);
+      
+      // Try exact match first, then normalized match
+      if (mapping.upcCode === upcCode || normalizedMappingUpc === normalizedInputUpc) {
+        return mapping.customName;
+      }
+    }
+    
+    return undefined;
+  }
 }
 
 // Import database storage when needed
@@ -307,6 +356,22 @@ class DatabaseStorage implements IStorage {
   }
   
   async setActiveSession(sessionId: string): Promise<void> {
+    throw new Error("Not implemented - using memory storage for now");
+  }
+  
+  async addCustomNameMapping(mapping: InsertCustomNameMapping): Promise<CustomNameMapping> {
+    throw new Error("Not implemented - using memory storage for now");
+  }
+  
+  async getCustomNameMappings(): Promise<CustomNameMapping[]> {
+    throw new Error("Not implemented - using memory storage for now");
+  }
+  
+  async clearCustomNameMappings(): Promise<void> {
+    throw new Error("Not implemented - using memory storage for now");
+  }
+  
+  async getCustomNameByUpc(upcCode: string): Promise<string | undefined> {
     throw new Error("Not implemented - using memory storage for now");
   }
 }

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { BarcodeScanner } from "@/components/barcode-scanner";
-import { ScannedItemsList } from "@/components/scanned-items-list";
+import { ScannedItemsList, CustomNameMappingUpload } from "@/components/scanned-items-list";
 import { LiquorSearch } from "@/components/liquor-search";
 import { SessionSidebar } from "@/components/session-sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -344,6 +344,7 @@ export default function BarcodeScannerPage() {
                 refreshTrigger={refreshTrigger}
               />
             )}
+            <CustomNameMappingUpload />
           </div>
         </div>
 

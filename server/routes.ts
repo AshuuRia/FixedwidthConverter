@@ -659,6 +659,129 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Upload custom name mapping file
+  app.post("/api/upload-custom-names", upload.single('file'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+
+      console.log('Processing custom name mapping file:', {
+        filename: req.file.originalname,
+        mimetype: req.file.mimetype,
+        size: req.file.size
+      });
+
+      // Clear existing mappings first
+      await storage.clearCustomNameMappings();
+
+      let worksheetData: any[][] = [];
+
+      if (req.file.mimetype === 'text/csv' || req.file.originalname.endsWith('.csv')) {
+        // Parse CSV file
+        const content = req.file.buffer.toString('utf-8');
+        const lines = content.split('\n').filter(line => line.trim());
+        
+        for (const line of lines) {
+          const columns = line.split(',').map(col => col.trim().replace(/["']/g, ''));
+          if (columns.length >= 2) {
+            worksheetData.push(columns);
+          }
+        }
+      } else if (req.file.mimetype.includes('sheet') || req.file.originalname.endsWith('.xlsx') || req.file.originalname.endsWith('.xls')) {
+        // Parse Excel file
+        const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        worksheetData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+      } else {
+        return res.status(400).json({ error: "Unsupported file format. Please upload CSV or Excel files." });
+      }
+
+      let mappingsAdded = 0;
+      let skippedRows = 0;
+      
+      // Skip header row if it looks like headers
+      const startRow = (worksheetData[0] && (
+        worksheetData[0][0]?.toLowerCase().includes('upc') || 
+        worksheetData[0][1]?.toLowerCase().includes('name')
+      )) ? 1 : 0;
+
+      for (let i = startRow; i < worksheetData.length; i++) {
+        const row = worksheetData[i];
+        if (row && row.length >= 2 && row[0] && row[1]) {
+          const upcCode = String(row[0]).trim();
+          const customName = String(row[1]).trim();
+          
+          if (upcCode && customName) {
+            await storage.addCustomNameMapping({
+              upcCode,
+              customName
+            });
+            mappingsAdded++;
+          } else {
+            skippedRows++;
+          }
+        } else {
+          skippedRows++;
+        }
+      }
+
+      console.log('Custom name mapping upload complete:', {
+        mappingsAdded,
+        skippedRows,
+        totalRows: worksheetData.length
+      });
+
+      res.json({
+        success: true,
+        mappingsUploaded: mappingsAdded,
+        skippedRows,
+        totalRows: worksheetData.length
+      });
+
+    } catch (error) {
+      console.error('Error processing custom name mapping file:', error);
+      res.status(500).json({ 
+        error: "Failed to process file",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  // Clear custom name mappings
+  app.delete("/api/clear-custom-names", async (req, res) => {
+    try {
+      await storage.clearCustomNameMappings();
+      console.log('All custom name mappings cleared');
+      res.json({ success: true, message: "Custom name mappings cleared" });
+    } catch (error) {
+      console.error('Error clearing custom name mappings:', error);
+      res.status(500).json({ 
+        error: "Failed to clear custom name mappings",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  // Get custom name mappings count
+  app.get("/api/custom-names", async (req, res) => {
+    try {
+      const mappings = await storage.getCustomNameMappings();
+      res.json({ 
+        success: true, 
+        count: mappings.length,
+        mappings: mappings 
+      });
+    } catch (error) {
+      console.error('Error fetching custom name mappings:', error);
+      res.status(500).json({ 
+        error: "Failed to fetch custom name mappings",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
   // Generate Excel file
   app.post("/api/generate-excel", async (req, res) => {
     try {
