@@ -739,6 +739,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         
         console.log('Column detection:', {
+          headers: firstRow,
           upcColumn: firstRow[upcColumnIndex] || 'not found',
           nameColumn: firstRow[nameColumnIndex] || 'not found',
           upcIndex: upcColumnIndex,
@@ -777,7 +778,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('Custom name mapping upload complete:', {
         mappingsAdded,
         skippedRows,
-        totalRows: worksheetData.length
+        totalRows: worksheetData.length,
+        sampleMappings: mappingsAdded > 0 ? `${String(worksheetData[startRow]?.[upcColumnIndex] || '').trim()} -> ${String(worksheetData[startRow]?.[nameColumnIndex] || '').trim()}` : 'none'
       });
 
       res.json({
