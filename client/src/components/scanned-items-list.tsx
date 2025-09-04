@@ -315,10 +315,22 @@ export function ScannedItemsList({ sessionId, refreshTrigger }: ScannedItemsList
         const mappingsResult = await mappingsResponse.json();
         // Create a lookup map from UPC to custom name
         for (const mapping of mappingsResult.mappings || []) {
-          // Normalize UPC codes for matching
-          const normalizedUpc = mapping.upcCode.replace(/^0+/, '') || '0';
-          customMappings[mapping.upcCode] = mapping.customName;
-          customMappings[normalizedUpc] = mapping.customName;
+          // Clean up UPC code from Excel formatting (remove = prefix and quotes)
+          let cleanUpc = mapping.upcCode.replace(/^=["']?|["']$/g, '');
+          
+          // Store multiple variations for matching
+          customMappings[mapping.upcCode] = mapping.customName; // Original
+          customMappings[cleanUpc] = mapping.customName; // Clean version
+          
+          // Normalized versions (remove leading zeros)
+          const normalizedOriginal = mapping.upcCode.replace(/^0+/, '') || '0';
+          const normalizedClean = cleanUpc.replace(/^0+/, '') || '0';
+          customMappings[normalizedOriginal] = mapping.customName;
+          customMappings[normalizedClean] = mapping.customName;
+          
+          // Padded versions (add leading zeros to match 14-digit format)
+          const paddedClean = cleanUpc.padStart(14, '0');
+          customMappings[paddedClean] = mapping.customName;
         }
       }
       
@@ -331,21 +343,36 @@ export function ScannedItemsList({ sessionId, refreshTrigger }: ScannedItemsList
           const formattedPrice = `$${price.toFixed(2)}`;
           const bottleSize = item.product!.bottleSize.replace(/\s+/g, ''); // Remove all spaces from bottle size
           
-          // Try to find custom name by matching UPC codes
+          // Try to find custom name by matching UPC codes with multiple variations
           let customName = null;
           
+          // Helper function to try multiple UPC variations
+          const tryFindCustomName = (upc: string): string | null => {
+            if (customMappings[upc]) return customMappings[upc];
+            
+            // Try without leading zeros
+            const normalized = upc.replace(/^0+/, '') || '0';
+            if (customMappings[normalized]) return customMappings[normalized];
+            
+            // Try with leading zeros (14-digit format)
+            const padded = upc.padStart(14, '0');
+            if (customMappings[padded]) return customMappings[padded];
+            
+            return null;
+          };
+          
           // Check scanned barcode first
-          if (item.scannedBarcode && customMappings[item.scannedBarcode]) {
-            customName = customMappings[item.scannedBarcode];
+          if (item.scannedBarcode) {
+            customName = tryFindCustomName(item.scannedBarcode);
           }
           
           // Check product UPC codes if no match found
-          if (!customName && item.product!.upcCode1 && customMappings[item.product!.upcCode1]) {
-            customName = customMappings[item.product!.upcCode1];
+          if (!customName && item.product!.upcCode1) {
+            customName = tryFindCustomName(item.product!.upcCode1);
           }
           
-          if (!customName && item.product!.upcCode2 && customMappings[item.product!.upcCode2]) {
-            customName = customMappings[item.product!.upcCode2];
+          if (!customName && item.product!.upcCode2) {
+            customName = tryFindCustomName(item.product!.upcCode2);
           }
           
           // Use custom name if found, otherwise use original brand name
